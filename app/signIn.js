@@ -1,0 +1,217 @@
+import {
+  View,
+  Text,
+  Image,
+  TextInput,
+  TouchableOpacity,
+  Pressable,
+  Alert,
+} from "react-native";
+import React, { useRef, useState } from "react";
+import { StatusBar } from "expo-status-bar";
+import {
+  heightPercentageToDP as hp,
+  widthPercentageToDP as wp,
+} from "react-native-responsive-screen";
+import { Octicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import Loading from "../components/Loading.js"; // Import the Loading component
+
+export default function signIn() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  const emailRef = useRef("");
+  const passwordRef = useRef("");
+
+  const handleSignIn = () => {
+    if (!emailRef.current || !passwordRef.current) {
+      Alert.alert("Sign In", "Please fill in all fields.");
+      return;
+    }
+  };
+
+  return (
+    <View className="flex-1 justify-center items-center bg-white">
+      <StatusBar style="auto" />
+      <View
+        style={{
+          paddingTop: hp(8),
+          paddingHorizontal: wp(5),
+        }}
+        className="flex-1 gap-12"
+      >
+        {/*Sign in Image*/}
+        <View classname="items-center">
+          <Image
+            style={{ height: hp(25), alignSelf: "center" }}
+            resizeMode="contain"
+            source={require("../assets/images/boclogo.png")}
+          />
+        </View>
+
+        <View className="gap-4">
+          <Text
+            style={{ fontSize: hp(4) }}
+            className="font-bold trackind-wider text-center text-neutral-800"
+          >
+            Sign In
+          </Text>
+
+          <View className="gap-2">
+            <View
+              style={{
+                height: hp(7),
+                borderColor: "#e5e5e5",
+                borderWidth: 1,
+                backgroundColor: "#f5f5f5",
+                width: wp(90), // Set explicit width
+                alignSelf: "center",
+                marginHorizontal: wp(2),
+              }}
+              className="flex-row px-4 items-center rounded-2xl"
+            >
+              <View style={{ width: wp(7) }}>
+                <Octicons name="mail" size={hp(2.7)} color="gray" />
+              </View>
+              <TextInput
+                style={{
+                  fontSize: hp(2),
+                  height: hp(6),
+                  flex: 1,
+                  paddingLeft: wp(1),
+                }}
+                className="font-semibold text-neutral-700"
+                placeholder="Email"
+                placeholderTextColor="gray"
+                autoCapitalize="none"
+                autoCompleteType="email"
+                keyboardType="email-address"
+                onChangeText={(text) => (emailRef.current = text)} // Update emailRef
+              />
+            </View>
+          </View>
+          {/* Password Input Field */}
+          <View className="gap-4">
+            <View
+              style={{
+                height: hp(7),
+                borderWidth: 1,
+                borderColor: "#e5e5e5",
+                backgroundColor: "#f5f5f5",
+                width: wp(90),
+                alignSelf: "center",
+              }}
+              className="flex-row px-4 items-center rounded-2xl"
+            >
+              <View style={{ width: wp(7) }}>
+                <Octicons name="lock" size={hp(2.7)} color="gray" />
+              </View>
+              <TextInput
+                style={{
+                  fontSize: hp(2),
+                  height: hp(6),
+                  flex: 1,
+                  paddingLeft: wp(1),
+                }}
+                className="font-semibold text-neutral-700"
+                placeholder="Password"
+                placeholderTextColor="gray"
+                secureTextEntry={true}
+                autoCapitalize="none"
+                onChangeText={(text) => (passwordRef.current = text)} // Update passwordRef
+              />
+            </View>
+          </View>
+          {/*Forgot Password*/}
+          <TouchableOpacity
+            style={{
+              width: wp(90),
+              alignSelf: "center",
+              paddingVertical: 5,
+              paddingHorizontal: 10,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: hp(2),
+                textAlign: "right",
+
+                color: "#006bb3",
+              }}
+              className="font-semibold"
+            >
+              Forgot Password?
+            </Text>
+          </TouchableOpacity>
+
+          <View>
+            {loading ? (
+              <View className="flex-row justify-center ">
+                <Loading size={hp(6.5)} />
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={{
+                  width: wp(90),
+                  alignSelf: "center",
+                  backgroundColor: "#006bb3",
+                  borderRadius: 16,
+                  paddingVertical: hp(1.8),
+                  marginTop: hp(1),
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 3.84,
+                  elevation: 5,
+                }}
+                onPress={handleSignIn} // Attach handleSignIn here
+              >
+                <Text
+                  style={{
+                    fontSize: hp(2.2),
+                    color: "#fff",
+                    textAlign: "center",
+                    fontWeight: "700",
+                  }}
+                >
+                  Sign In
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/*signup text*/}
+          {/*signup text*/}
+          <View className="flex-row justify-center items-center gap-2">
+            <Text
+              style={{
+                fontSize: hp(1.8),
+                color: "gray",
+                textAlign: "center",
+                marginTop: hp(1),
+              }}
+            >
+              Don't have an account?{" "}
+            </Text>
+            <Pressable
+              onPress={() => {
+                router.push("signUp");
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: hp(1.8),
+                  color: "#006bb3", // Blue color
+                  fontWeight: "bold",
+                }}
+              >
+                Sign Up
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
