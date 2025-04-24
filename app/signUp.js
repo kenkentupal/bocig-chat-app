@@ -17,9 +17,12 @@ import { Octicons, Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import Loading from "../components/Loading.js"; // Import the Loading component
 import CustomKeyboardView from "../components/CustomKeyboardView.js";
+import { Platform } from "react-native";
+import { useAuth } from "../context/authContext.js";
 
 export default function signUp() {
   const router = useRouter();
+  const { register } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const emailRef = useRef("");
@@ -27,7 +30,7 @@ export default function signUp() {
   const usernameRef = useRef(""); // Added usernameRef
   const profileUrlRef = useRef(""); // Added profileUrlRef
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (
       !emailRef.current ||
       !passwordRef.current ||
@@ -39,12 +42,22 @@ export default function signUp() {
     }
 
     setLoading(true);
-    console.log("Registering user:", {
-      email: emailRef.current,
-      password: passwordRef.current,
-      username: usernameRef.current, // Added username
-      profileUrl: profileUrlRef.current, // Added profileUrl
-    });
+
+    let response = await register(
+      emailRef.current,
+      passwordRef.current,
+      usernameRef.current,
+      profileUrlRef.current
+    );
+
+    setLoading(false);
+
+    console.log(response);
+    if (response?.success) {
+      router.push("signIn"); // Navigate to signIn screen
+    } else {
+      Alert.alert("Sign Up", response?.error?.message);
+    }
   };
 
   return (
@@ -52,22 +65,31 @@ export default function signUp() {
       <StatusBar style="auto" />
       <View
         style={{
-          paddingTop: hp(8),
           paddingHorizontal: wp(5),
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: hp(100),
         }}
-        className="flex-1 gap-12"
+        className="flex-1"
       >
         {/*Sign in Image*/}
-        <View classname="items-center">
+        <View style={{ alignItems: "center" }}>
           <Image
-            style={{ height: hp(25), alignSelf: "center" }}
+            style={{ height: hp(25), width: wp(50) }}
             resizeMode="contain"
             source={require("../assets/images/boclogo.png")}
           />
         </View>
 
         {/* Sign Up Text and Input Fields */}
-        <View className="gap-4">
+        <View
+          style={{
+            width: wp(90),
+            maxWidth: 500,
+            marginTop: hp(4),
+          }}
+          className="gap-4"
+        >
           <Text
             style={{ fontSize: hp(4) }}
             className="font-bold trackind-wider text-center text-neutral-800"
@@ -89,7 +111,13 @@ export default function signUp() {
               }}
               className="flex-row px-4 items-center rounded-2xl"
             >
-              <View style={{ width: wp(7) }}>
+              <View
+                style={{
+                  width: Platform.OS === "web" ? wp(2) : wp(7),
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
                 <Feather name="user" size={hp(2.7)} color="gray" />
               </View>
               <TextInput
@@ -97,7 +125,7 @@ export default function signUp() {
                   fontSize: hp(2),
                   height: hp(6),
                   flex: 1,
-                  paddingLeft: wp(1),
+                  paddingLeft: Platform.OS === "web" ? wp(1) : wp(3),
                 }}
                 className="font-semibold text-neutral-700"
                 placeholder="Username"
@@ -123,7 +151,13 @@ export default function signUp() {
               }}
               className="flex-row px-4 items-center rounded-2xl"
             >
-              <View style={{ width: wp(7) }}>
+              <View
+                style={{
+                  width: Platform.OS === "web" ? wp(2) : wp(7),
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
                 <Octicons name="mail" size={hp(2.7)} color="gray" />
               </View>
               <TextInput
@@ -131,7 +165,7 @@ export default function signUp() {
                   fontSize: hp(2),
                   height: hp(6),
                   flex: 1,
-                  paddingLeft: wp(1),
+                  paddingLeft: Platform.OS === "web" ? wp(1) : wp(3),
                 }}
                 className="font-semibold text-neutral-700"
                 placeholder="Email"
@@ -156,7 +190,13 @@ export default function signUp() {
               }}
               className="flex-row px-4 items-center rounded-2xl"
             >
-              <View style={{ width: wp(7) }}>
+              <View
+                style={{
+                  width: Platform.OS === "web" ? wp(2) : wp(7),
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
                 <Octicons name="lock" size={hp(2.7)} color="gray" />
               </View>
               <TextInput
@@ -164,7 +204,7 @@ export default function signUp() {
                   fontSize: hp(2),
                   height: hp(6),
                   flex: 1,
-                  paddingLeft: wp(1),
+                  paddingLeft: Platform.OS === "web" ? wp(1) : wp(3),
                 }}
                 className="font-semibold text-neutral-700"
                 placeholder="Password"
@@ -189,7 +229,13 @@ export default function signUp() {
               }}
               className="flex-row px-4 items-center rounded-2xl"
             >
-              <View style={{ width: wp(7) }}>
+              <View
+                style={{
+                  width: Platform.OS === "web" ? wp(2) : wp(7),
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
                 <Feather name="image" size={hp(2.7)} color="gray" />
               </View>
               <TextInput
@@ -197,7 +243,7 @@ export default function signUp() {
                   fontSize: hp(2),
                   height: hp(6),
                   flex: 1,
-                  paddingLeft: wp(1),
+                  paddingLeft: Platform.OS === "web" ? wp(1) : wp(3),
                 }}
                 className="font-semibold text-neutral-700"
                 placeholder="Profile URL"
