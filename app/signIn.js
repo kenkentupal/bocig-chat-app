@@ -16,6 +16,7 @@ import {
 import { Octicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import Loading from "../components/Loading.js"; // Import the Loading component
+import CustomKeyboardView from "../components/CustomKeyboardView.js";
 
 export default function signIn() {
   const router = useRouter();
@@ -32,7 +33,7 @@ export default function signIn() {
   };
 
   return (
-    <View className="flex-1 justify-center items-center bg-white">
+ <CustomKeyboardView>
       <StatusBar style="auto" />
       <View
         style={{
@@ -212,6 +213,6 @@ export default function signIn() {
           </View>
         </View>
       </View>
-    </View>
+    </CustomKeyboardView>
   );
 }
