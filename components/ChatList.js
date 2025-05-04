@@ -16,6 +16,7 @@ import {
 export default function ChatList({ users, currentUser }) {
   const router = useRouter();
   const [latestMessages, setLatestMessages] = useState({});
+  const [unreadMessages, setUnreadMessages] = useState({});
 
   useEffect(() => {
     if (!currentUser || users.length === 0) return;
@@ -40,6 +41,14 @@ export default function ChatList({ users, currentUser }) {
           ...prev,
           [user.uid]: msg,
         }));
+
+        // Check if message is unread (sent by other user and not seen)
+        if (msg && msg.senderId !== me.uid && !msg.seen) {
+          setUnreadMessages((prev) => ({
+            ...prev,
+            [user.uid]: true,
+          }));
+        }
       });
 
       unsubscribes.push(unsub);
@@ -49,6 +58,23 @@ export default function ChatList({ users, currentUser }) {
       unsubscribes.forEach((unsub) => unsub && unsub());
     };
   }, [users, currentUser]);
+
+  // Mark messages as read when user opens a chat
+  const handleChatOpen = (userId) => {
+    setUnreadMessages((prev) => ({
+      ...prev,
+      [userId]: false,
+    }));
+
+    // Navigate to the chat screen
+    const me = Array.isArray(currentUser) ? currentUser[0] : currentUser;
+    if (me?.uid) {
+      router.push({
+        pathname: `/chat/${userId}`,
+        params: { currentUserId: me.uid },
+      });
+    }
+  };
 
   // Sort users by latest message timestamp (desc)
   const sortedUsers = [...users].sort((a, b) => {
@@ -73,7 +99,9 @@ export default function ChatList({ users, currentUser }) {
             index={index}
             router={router}
             currentUser={currentUser}
-            lastMsg={latestMessages[item.uid] || null} // Pass latest message
+            lastMsg={latestMessages[item.uid] || null}
+            hasUnread={unreadMessages[item.uid] || false}
+            onPress={() => handleChatOpen(item.uid)}
           />
         )}
         ListEmptyComponent={<Text>No chats available</Text>}

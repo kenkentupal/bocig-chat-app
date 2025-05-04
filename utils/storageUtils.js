@@ -1,109 +1,96 @@
 import { storage } from "../firebaseConfig";
-import {
-  ref,
-  uploadBytesResumable,
-  getDownloadURL,
-  deleteObject,
-} from "firebase/storage";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { Platform } from "react-native";
 
-let activeUploadTask = null;
+// Improve error handling in upload function
+export const createUploadTask = async (file, path, onProgress) => {
+  if (!file) {
+    throw new Error("No file provided for upload");
+  }
 
-/**
- * Creates a cancelable upload task and starts the upload
- */
-export const createUploadTask = async (
-  file,
-  path,
-  progressCallback = () => {}
-) => {
+  if (!path) {
+    throw new Error("No storage path specified");
+  }
+
   try {
-    // Create storage reference
+    // Create reference to the file location in Firebase Storage
     const storageRef = ref(storage, path);
 
-    // Get blob data
-    const response = await fetch(file.uri);
-    const blob = await response.blob();
+    // For web platform, handle Blob or File objects
+    if (Platform.OS === "web") {
+      // Log file details for debugging
+      console.log("Web upload - file type:", typeof file, file instanceof Blob);
 
-    // Create and store the upload task globally
-    activeUploadTask = uploadBytesResumable(storageRef, blob);
+      // Handle file upload
+      const uploadTask = uploadBytesResumable(storageRef, file);
 
-    // Return a promise that resolves with both the download URL and handles cancellation
-    return new Promise((resolve, reject) => {
-      activeUploadTask.on(
-        "state_changed",
-        (snapshot) => {
-          // Report upload progress
-          const progress =
-            (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          console.log(`Upload progress: ${progress.toFixed(1)}%`);
-          progressCallback(progress);
-        },
-        (error) => {
-          console.log("Upload error code:", error.code);
-          if (error.code === "storage/canceled") {
-            console.log("Upload was canceled");
-            resolve({ canceled: true });
-          } else {
+      // Set up progress monitoring
+      return new Promise((resolve, reject) => {
+        uploadTask.on(
+          "state_changed",
+          (snapshot) => {
+            const progress =
+              (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            if (onProgress) onProgress(progress);
+          },
+          (error) => {
+            console.error("Storage error:", error);
+            reject(error);
+          },
+          async () => {
+            try {
+              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              resolve({ url: downloadURL, canceled: false });
+            } catch (urlError) {
+              reject(urlError);
+            }
+          }
+        );
+      });
+    } else {
+      // For native platforms (iOS/Android)
+      if (!file.uri) {
+        throw new Error("File URI is missing");
+      }
+
+      // For native platforms, handle file URI
+      const fetchResponse = await fetch(file.uri);
+      const fileObj = await fetchResponse.blob();
+
+      // Create and start the upload task
+      const uploadTask = uploadBytesResumable(storageRef, fileObj);
+
+      return new Promise((resolve, reject) => {
+        uploadTask.on(
+          "state_changed",
+          (snapshot) => {
+            const progress =
+              (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            console.log(`Upload progress: ${progress.toFixed(2)}%`);
+            onProgress(progress);
+          },
+          (error) => {
             console.error("Upload error:", error);
             reject(error);
+          },
+          async () => {
+            const url = await getDownloadURL(uploadTask.snapshot.ref);
+            resolve({ url, canceled: false });
           }
-        },
-        async () => {
-          // Upload completed, get download URL
-          try {
-            const downloadURL = await getDownloadURL(
-              activeUploadTask.snapshot.ref
-            );
-            console.log("Upload completed successfully");
-            resolve({ url: downloadURL, canceled: false });
-          } catch (error) {
-            console.error("Error getting download URL:", error);
-            reject(error);
-          }
-        }
-      );
-    });
+        );
+      });
+    }
   } catch (error) {
     console.error("Error in createUploadTask:", error);
     throw error;
   }
 };
 
-/**
- * Cancels the active upload and cleans up resources
- */
-export const cancelActiveUpload = async () => {
-  if (!activeUploadTask) {
-    console.log("No active upload to cancel");
-    return false;
-  }
-
-  try {
-    // Cancel the upload
+export const cancelActiveUpload = () => {
+  if (activeUploadTask) {
     activeUploadTask.cancel();
-
-    // Try to delete the partially uploaded file
-    try {
-      const fileRef = activeUploadTask.snapshot.ref;
-      await deleteObject(fileRef);
-      console.log("Partial file deleted");
-    } catch (e) {
-      console.log("Could not delete partial file:", e.message);
-    }
-
-    // Clear the active task
     activeUploadTask = null;
-    console.log("Upload canceled successfully");
-    return true;
-  } catch (error) {
-    console.error("Error canceling upload:", error);
-    return false;
+    return { canceled: true };
   }
-};
-
-/**
- * Check if there's an active upload
- */
-export const hasActiveUpload = () => {
-  return activeUploadTask !== null;
+  return { canceled: false };
 };
