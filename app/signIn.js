@@ -15,43 +15,68 @@ import {
 } from "react-native-responsive-screen";
 import { Octicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import Loading from "../components/Loading.js"; // Import the Loading component
+import Loading from "../components/Loading.js";
+import { Platform } from "react-native";
+import { useAuth } from "../context/authContext";
 import CustomKeyboardView from "../components/CustomKeyboardView.js";
 
 export default function signIn() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
 
   const emailRef = useRef("");
   const passwordRef = useRef("");
 
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
     if (!emailRef.current || !passwordRef.current) {
       Alert.alert("Sign In", "Please fill in all fields.");
       return;
     }
+    setLoading(true);
+
+    const response = await login(emailRef.current, passwordRef.current);
+
+    setLoading(false);
+
+    if (!response.success) {
+      Alert.alert(
+        "Sign In",
+        response.error?.message || "An error occurred. Please try again."
+      );
+    }
   };
 
   return (
- <CustomKeyboardView>
+    <CustomKeyboardView>
       <StatusBar style="auto" />
       <View
         style={{
-          paddingTop: hp(8),
+ 
           paddingHorizontal: wp(5),
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: hp(100),
         }}
-        className="flex-1 gap-12"
+        className="flex-1"
       >
         {/*Sign in Image*/}
-        <View classname="items-center">
+        <View style={{ alignItems: "center" }}>
           <Image
-            style={{ height: hp(25), alignSelf: "center" }}
+            style={{ height: hp(25), width: wp(50) }}
             resizeMode="contain"
             source={require("../assets/images/boclogo.png")}
           />
         </View>
 
-        <View className="gap-4">
+        <View
+          style={{
+            width: wp(90),
+            maxWidth: 500,
+            marginTop: hp(4),
+          }}
+          className="gap-4"
+        >
           <Text
             style={{ fontSize: hp(4) }}
             className="font-bold trackind-wider text-center text-neutral-800"
@@ -66,21 +91,27 @@ export default function signIn() {
                 borderColor: "#e5e5e5",
                 borderWidth: 1,
                 backgroundColor: "#f5f5f5",
-                width: wp(90), // Set explicit width
+                width: wp(90),
                 alignSelf: "center",
                 marginHorizontal: wp(2),
               }}
               className="flex-row px-4 items-center rounded-2xl"
             >
-              <View style={{ width: wp(7) }}>
+              <View
+                style={{
+                  width: Platform.OS === "web" ? wp(2) : wp(7),
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
                 <Octicons name="mail" size={hp(2.7)} color="gray" />
               </View>
               <TextInput
                 style={{
                   fontSize: hp(2),
-                  height: hp(6),
+                  height: hp(7),
                   flex: 1,
-                  paddingLeft: wp(1),
+                  paddingLeft: Platform.OS === "web" ? wp(1) : wp(3),
                 }}
                 className="font-semibold text-neutral-700"
                 placeholder="Email"
@@ -105,7 +136,13 @@ export default function signIn() {
               }}
               className="flex-row px-4 items-center rounded-2xl"
             >
-              <View style={{ width: wp(7) }}>
+              <View
+                style={{
+                  width: Platform.OS === "web" ? wp(2) : wp(7),
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
                 <Octicons name="lock" size={hp(2.7)} color="gray" />
               </View>
               <TextInput
@@ -113,7 +150,7 @@ export default function signIn() {
                   fontSize: hp(2),
                   height: hp(6),
                   flex: 1,
-                  paddingLeft: wp(1),
+                  paddingLeft: Platform.OS === "web" ? wp(1) : wp(3),
                 }}
                 className="font-semibold text-neutral-700"
                 placeholder="Password"
@@ -190,7 +227,7 @@ export default function signIn() {
                 fontSize: hp(1.8),
                 color: "gray",
                 textAlign: "center",
-                marginTop: hp(1),
+            
               }}
             >
               Don't have an account?{" "}
