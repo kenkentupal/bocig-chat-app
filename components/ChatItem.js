@@ -19,17 +19,22 @@ export default function ChatItem({
   noBorder,
   currentUser,
   lastMsg,
+  hasUnread,
 }) {
   // State
-  // Remove local lastMsg state, use prop instead
   const [isUnread, setIsUnread] = useState(false);
   const { setSelectedChatUser } = useChat();
 
+  // Get current user safely - handle array or direct object cases
+  const getCurrentUserId = () => {
+    if (!currentUser) return null;
+    return Array.isArray(currentUser) ? currentUser[0]?.uid : currentUser?.uid;
+  };
+
   // Subscribe to unread state only
   useEffect(() => {
-    // Get current user
-    const user = Array.isArray(currentUser) ? currentUser[0] : currentUser;
-    if (!user?.uid || !item?.uid || !lastMsg) return;
+    const userId = getCurrentUserId();
+    if (!userId || !item?.uid || !lastMsg) return;
 
     // Set unread state if message is from other user and not seen
     setIsUnread(
@@ -59,24 +64,67 @@ export default function ChatItem({
     });
   };
 
-  // Get message preview text with "You: " prefix if needed
-  const getMessagePreview = () => {
-    if (!lastMsg?.text) return "";
-
-    const user = Array.isArray(currentUser) ? currentUser[0] : currentUser;
-    const isFromCurrentUser = lastMsg.senderId === user?.uid;
-
-    if (isFromCurrentUser) {
-      return `You: ${lastMsg.text}`;
-    }
-
-    return lastMsg.text;
-  };
-
   // Navigate to chat room when pressed
   const handlePress = () => {
     setSelectedChatUser(item);
     router.push("/chatRoom");
+  };
+
+  const renderMessagePreview = () => {
+    if (!lastMsg) {
+      return <Text className="text-neutral-400 text-[15px]">Say Hi 👋</Text>;
+    }
+
+    // Get current user ID safely
+    const currentUserId = getCurrentUserId();
+
+    // Style for unread messages - bold text
+    const messageTextStyle = isUnread
+      ? "text-neutral-800 text-[15px] font-bold"
+      : "text-neutral-500 text-[15px]";
+
+    // Handle file message previews
+    if (lastMsg.fileUrl) {
+      if (lastMsg.isImage) {
+        return (
+          <Text className={messageTextStyle}>
+            {currentUserId && lastMsg.senderId === currentUserId
+              ? "You sent a photo"
+              : "Sent you a photo"}
+          </Text>
+        );
+      } else if (lastMsg.fileType && lastMsg.fileType.startsWith("video/")) {
+        return (
+          <Text className={messageTextStyle}>
+            {currentUserId && lastMsg.senderId === currentUserId
+              ? "You sent a video"
+              : "Sent you a video"}
+          </Text>
+        );
+      } else {
+        return (
+          <Text className={messageTextStyle}>
+            📎{" "}
+            {currentUserId && lastMsg.senderId === currentUserId
+              ? "You sent a file"
+              : "Sent you a file"}
+            {lastMsg.fileName
+              ? `: ${lastMsg.fileName.substring(0, 15)}${
+                  lastMsg.fileName.length > 15 ? "..." : ""
+                }`
+              : ""}
+          </Text>
+        );
+      }
+    }
+
+    // For regular text messages
+    return (
+      <Text className={messageTextStyle} numberOfLines={1}>
+        {currentUserId && lastMsg.senderId === currentUserId ? "You: " : ""}
+        {lastMsg.text}
+      </Text>
+    );
   };
 
   return (
@@ -86,73 +134,50 @@ export default function ChatItem({
       }`}
       onPress={handlePress}
     >
-      {/* User Avatar */}
-      <Image
-        source={{ uri: item?.profileUrl }}
-        style={{ height: hp(6), width: hp(6), borderRadius: 100 }}
-        className="rounded-full"
-      />
+      {/* User Avatar with unread indicator */}
+      <View className="relative">
+        <Image
+          source={{ uri: item?.profileUrl }}
+          style={{ height: hp(6), width: hp(6), borderRadius: 100 }}
+          className="rounded-full"
+        />
 
-      {/* Chat Content */}
-      <View className="flex-1 gap-1">
-        {/* Username and Timestamp */}
-        <View className="flex-row justify-between items-center">
-          <Text
-            style={{ fontSize: hp(1.8) }}
-            className={`${
-              isUnread ? "font-bold" : "font-semibold"
-            } text-neutral-800`}
-          >
-            {item?.username}
-          </Text>
-          <Text
+        {/* Unread message indicator dot */}
+        {isUnread && (
+          <View
+            className="absolute top-0 right-0 bg-blue-500 rounded-full"
             style={{
-              fontSize: hp(1.6),
-              color: isUnread ? "#0084ff" : "#737373",
-              fontWeight: isUnread ? "bold" : "normal",
+              width: 14,
+              height: 14,
+              borderWidth: 2,
+              borderColor: "white",
             }}
-            className="font-medium"
-          >
-            {lastMsg?.createdAt ? formatTime(lastMsg.createdAt) : ""}
-          </Text>
-        </View>
-
-        {/* Message Preview */}
-        {lastMsg?.text ? (
-          <View className="flex-row items-center">
-            {/* Unread indicator - Messenger-style blue dot */}
-            {isUnread && (
-              <View className="h-2.5 w-2.5 bg-blue-500 rounded-full mr-2" />
-            )}
-            <Text
-              style={{
-                fontSize: hp(1.6),
-                color: isUnread ? "#000" : "#737373",
-                fontWeight: isUnread ? "600" : "normal",
-              }}
-              numberOfLines={1}
-            >
-              {getMessagePreview()}
-            </Text>
-          </View>
-        ) : (
-          // No messages yet - "Say Hi!"
-          <View className="flex-row items-center gap-1">
-            <MaterialCommunityIcons
-              name="hand-wave"
-              size={hp(2)}
-              color="#fbbf24"
-            />
-            <Text
-              style={{ fontSize: hp(1.6), color: "#737373" }}
-              className="font-medium"
-              numberOfLines={1}
-            >
-              Say Hi!
-            </Text>
-          </View>
+          />
         )}
       </View>
+
+      {/* Chat Content */}
+      <View className="flex-1">
+        <Text
+          className={`text-neutral-800 text-[17px] ${
+            isUnread ? "font-bold" : "font-semibold"
+          }`}
+        >
+          {item?.username || "User"}
+        </Text>
+        {renderMessagePreview()}
+      </View>
+
+      {/* Timestamp with unread styling */}
+      {lastMsg?.createdAt && (
+        <Text
+          className={`text-xs ${
+            isUnread ? "text-blue-500 font-bold" : "text-gray-400"
+          }`}
+        >
+          {formatTime(lastMsg.createdAt)}
+        </Text>
+      )}
     </TouchableOpacity>
   );
 }

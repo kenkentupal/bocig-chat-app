@@ -1,4 +1,3 @@
-import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
 import React from "react";
 import {
   heightPercentageToDP as hp,
@@ -6,6 +5,8 @@ import {
 } from "react-native-responsive-screen";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
+import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
+
 
 export default function MessageItem({ message, currentUser }) {
   // Check if message is from current user
@@ -16,8 +17,8 @@ export default function MessageItem({ message, currentUser }) {
     styles.container,
     {
       justifyContent: isCurrentUser ? "flex-end" : "flex-start",
-      marginRight: isCurrentUser ? 12 : 0,
-      marginLeft: isCurrentUser ? 0 : 12,
+      marginRight: 0,
+      marginLeft: 0,
     },
   ];
 
@@ -27,6 +28,10 @@ export default function MessageItem({ message, currentUser }) {
       alignSelf: isCurrentUser ? "flex-end" : "flex-start",
       backgroundColor: isCurrentUser ? "#0084ff" : "#f0f0f0",
       borderColor: isCurrentUser ? "#0084ff" : "#e5e7eb",
+      borderBottomLeftRadius: !isCurrentUser ? 8 : 18,
+      borderBottomRightRadius: isCurrentUser ? 8 : 18,
+      borderTopLeftRadius: 18,
+      borderTopRightRadius: 18,
     },
   ];
 
@@ -116,20 +121,52 @@ export default function MessageItem({ message, currentUser }) {
 
   return (
     <View style={containerStyle}>
-      <View style={{ width: wp(80) }}>
+      <View style={{ width: wp(70) }}>
         {/* Message bubble */}
         <View style={bubbleStyle}>{renderMessageContent()}</View>
 
-        {/* Read receipt indicator (only shown for sent messages) */}
-        {isCurrentUser && (
-          <View style={styles.seenContainer}>
-            {message?.seen ? (
-              <Ionicons name="checkmark-done" size={hp(1.6)} color="#0084ff" />
-            ) : (
-              <Ionicons name="checkmark" size={hp(1.6)} color="#737373" />
-            )}
-          </View>
-        )}
+        {/* Time and read receipt container */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: isCurrentUser ? "flex-end" : "flex-start",
+            marginTop: 4,
+            marginLeft: isCurrentUser ? 0 : 2,
+            marginRight: isCurrentUser ? 2 : 0,
+          }}
+        >
+          {/* Time display */}
+          <Text
+            style={{
+              fontSize: hp(1.5),
+              color: "#65676B",
+              marginRight: isCurrentUser ? 4 : 0,
+            }}
+          >
+            {message.createdAt && message.createdAt.toDate
+              ? message.createdAt.toDate().toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "Just now"}
+          </Text>
+
+          {/* Read receipt indicator (only shown for sent messages) */}
+          {isCurrentUser && (
+            <View>
+              {message?.seen ? (
+                <Ionicons
+                  name="checkmark-done"
+                  size={hp(1.6)}
+                  color="#0084ff"
+                />
+              ) : (
+                <Ionicons name="checkmark" size={hp(1.6)} color="#737373" />
+              )}
+            </View>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -138,17 +175,13 @@ export default function MessageItem({ message, currentUser }) {
 const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
-    marginBottom: 12,
+    marginBottom: 2,
   },
   bubble: {
     padding: 12,
     borderRadius: 18,
     borderWidth: 1,
-  },
-  seenContainer: {
-    alignSelf: "flex-end",
-    marginRight: 5,
-    marginTop: 2,
+    maxWidth: "100%",
   },
   image: {
     width: wp(60),

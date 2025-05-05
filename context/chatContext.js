@@ -1,33 +1,34 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { createContext, useState, useContext, useEffect } from "react";
+import { Platform } from "react-native";
 
 const ChatContext = createContext();
 
 export const ChatProvider = ({ children }) => {
-  const [selectedChatUser, setSelectedChatUserState] = useState(null);
+  const [selectedChatUser, setSelectedChatUser] = useState(null);
 
-  // Load persisted chat user on mount
+  // Load saved user when context is created (for web reloads)
   useEffect(() => {
-    const loadChatUser = async () => {
-      try {
-        const stored = await AsyncStorage.getItem("selectedChatUser");
-        if (stored) setSelectedChatUserState(JSON.parse(stored));
-      } catch (e) {
-        // handle error if needed
+    if (Platform.OS === "web" && window.localStorage) {
+      const savedUser = window.localStorage.getItem("selectedChatUser");
+      if (savedUser) {
+        try {
+          setSelectedChatUser(JSON.parse(savedUser));
+        } catch (e) {
+          console.error("Error parsing saved user:", e);
+        }
       }
-    };
-    loadChatUser();
+    }
   }, []);
 
-  // Persist chat user on change
-  const setSelectedChatUser = async (user) => {
-    setSelectedChatUserState(user);
-    if (user) {
-      await AsyncStorage.setItem("selectedChatUser", JSON.stringify(user));
-    } else {
-      await AsyncStorage.removeItem("selectedChatUser");
+  // Save selected user whenever it changes
+  useEffect(() => {
+    if (selectedChatUser && Platform.OS === "web" && window.localStorage) {
+      window.localStorage.setItem(
+        "selectedChatUser",
+        JSON.stringify(selectedChatUser)
+      );
     }
-  };
+  }, [selectedChatUser]);
 
   return (
     <ChatContext.Provider value={{ selectedChatUser, setSelectedChatUser }}>
