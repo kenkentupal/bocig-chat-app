@@ -10,11 +10,13 @@ import {
   Animated,
   Pressable,
   Platform,
+  KeyboardAvoidingView,
+  FlatList,
 } from "react-native";
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "expo-router";
+import { useRouter, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Stack } from "expo-router";
+
 import { useChat } from "../../context/chatContext";
 import { useAuth } from "../../context/authContext";
 import ChatRoomHeader from "../../components/ChatRoomHeader";
@@ -102,31 +104,51 @@ export default function ChatRoom() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  // Function to pick images - restrict to images only and force image type
-  const pickImage = async () => {
+  // Add new state variables for Messenger-like experience
+  const [mediaPreview, setMediaPreview] = useState(null);
+  const [selectedMedia, setSelectedMedia] = useState([]);
+  const [showMediaPreview, setShowMediaPreview] = useState(false);
+  const previewAnimation = useRef(new Animated.Value(0)).current;
+
+  // Function to pick images and videos - expanded to include videos
+  const pickMedia = async () => {
     try {
       if (Platform.OS === "web") {
-        // Web approach - use input element directly for more control
+        // Web approach with multiple selection
         const input = document.createElement("input");
         input.type = "file";
-        input.accept = "image/*";
+        input.accept = "image/*,video/*";
+        input.multiple = true; // Enable multiple selection
 
         // Create a promise to handle the file selection
         const filePromise = new Promise((resolve) => {
           input.onchange = (e) => {
-            const file = e.target.files[0];
-            if (file) {
-              // Create a file object with proper type information
-              resolve({
-                uri: URL.createObjectURL(file),
-                name: file.name,
-                type: file.type || "image/jpeg", // Force image type if missing
-                size: file.size,
-                nativeFile: file, // Keep reference to the native File object
-                isImage: true, // Explicitly set isImage flag
+            const files = Array.from(e.target.files);
+            if (files.length > 0) {
+              const mediaFiles = files.map((file) => {
+                const isImage = file.type.startsWith("image/");
+                const isVideo = file.type.startsWith("video/");
+
+                return {
+                  uri: URL.createObjectURL(file),
+                  name: file.name,
+                  type:
+                    file.type ||
+                    (isImage
+                      ? "image/jpeg"
+                      : isVideo
+                      ? "video/mp4"
+                      : "application/octet-stream"),
+                  size: file.size,
+                  nativeFile: file,
+                  isImage: isImage,
+                  isVideo: isVideo,
+                };
               });
+
+              resolve(mediaFiles);
             } else {
-              resolve(null);
+              resolve([]);
             }
           };
         });
@@ -135,52 +157,102 @@ export default function ChatRoom() {
         input.click();
 
         // Wait for user selection
-        const fileResult = await filePromise;
-        if (fileResult) {
-          console.log("Web file picked:", fileResult);
-          uploadAndSendFile(fileResult);
+        const fileResults = await filePromise;
+        if (fileResults.length > 0) {
+          // Show the media preview sheet
+          setSelectedMedia(fileResults);
+          showMediaPreviewSheet();
         }
       } else {
-        // Native platforms - use existing approach
+        // Native platforms - use existing approach with multiple selection
         const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images, // Only images
+          mediaTypes: ImagePicker.MediaTypeOptions.All,
           allowsEditing: false,
           quality: 0.8,
+          allowsMultipleSelection: true, // Enable multiple selection
+          selectionLimit: 10, // Messenger-like limit
         });
 
         if (!result.canceled && result.assets && result.assets.length > 0) {
-          const selectedAsset = result.assets[0];
-          uploadAndSendFile(selectedAsset);
+          const mediaFiles = result.assets.map((asset) => {
+            const isVideo = asset.type && asset.type.startsWith("video/");
+            return {
+              ...asset,
+              isVideo,
+              isImage: !isVideo,
+            };
+          });
+
+          // Show the media preview sheet
+          setSelectedMedia(mediaFiles);
+          showMediaPreviewSheet();
         }
       }
     } catch (error) {
-      console.error("Error picking image:", error);
-      Alert.alert("Error picking image:", error.message);
+      console.error("Error picking media:", error);
+      Alert.alert("Error picking media:", error.message);
     }
   };
 
-  // Function to pick documents
+  // Function to pick documents - ensure it works properly
   const pickDocument = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: "*/*",
-        copyToCacheDirectory: true,
-      });
+      if (Platform.OS === "web") {
+        // Web approach for documents - separate from media picker
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "*/*"; // Accept all file types for documents
 
-      if (
-        result.canceled === false &&
-        result.assets &&
-        result.assets.length > 0
-      ) {
-        const selectedDoc = result.assets[0];
-        uploadAndSendFile(selectedDoc);
+        const filePromise = new Promise((resolve) => {
+          input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+              resolve({
+                uri: URL.createObjectURL(file),
+                name: file.name,
+                type: file.type || "application/octet-stream",
+                size: file.size,
+                nativeFile: file,
+                isDocument: true, // Set document flag
+              });
+            } else {
+              resolve(null);
+            }
+          };
+        });
+
+        input.click();
+
+        const fileResult = await filePromise;
+        if (fileResult) {
+          console.log("Web document picked:", fileResult);
+          uploadAndSendFile(fileResult);
+        }
+      } else {
+        // Native platforms - use DocumentPicker
+        const result = await DocumentPicker.getDocumentAsync({
+          type: "*/*",
+          copyToCacheDirectory: true,
+        });
+
+        if (
+          result.canceled === false &&
+          result.assets &&
+          result.assets.length > 0
+        ) {
+          const selectedDoc = result.assets[0];
+          // Mark explicitly as a document
+          selectedDoc.isDocument = true;
+          uploadAndSendFile(selectedDoc);
+        }
       }
     } catch (error) {
+      console.error("Error picking document:", error);
       Alert.alert("Error picking document:", error.message);
     }
   };
 
-  // Upload and send file - modified with better error handling
+  // Upload and send file - enhanced to better handle media types
   const uploadAndSendFile = async (file) => {
     if (!user?.uid || !item?.uid) return;
 
@@ -198,7 +270,13 @@ export default function ChatRoom() {
       setUploadProgress(0);
 
       // Handle platform differences in file objects
-      let fileObj, fileExtension, fileType, isImage, fileSize, fileName;
+      let fileObj,
+        fileExtension,
+        fileType,
+        isImage,
+        isVideo,
+        fileSize,
+        fileName;
 
       if (Platform.OS === "web") {
         // Web-specific handling
@@ -213,10 +291,16 @@ export default function ChatRoom() {
         fileType = file.type || `application/${fileExtension}`;
         fileSize = file.size || 0;
 
+        // Explicit flags take precedence, then use MIME type
         isImage =
           file.isImage === true ||
           (fileType && fileType.startsWith("image/")) ||
           ["jpg", "jpeg", "png", "gif", "bmp", "webp"].includes(fileExtension);
+
+        isVideo =
+          file.isVideo === true ||
+          (fileType && fileType.startsWith("video/")) ||
+          ["mp4", "mov", "avi", "webm", "mkv"].includes(fileExtension);
       } else {
         // Native platform handling with proper validation
         if (!file.uri) {
@@ -234,9 +318,16 @@ export default function ChatRoom() {
         fileName = file.name || `File_${new Date().getTime()}.${fileExtension}`;
         fileSize = file.fileSize || file.size || 0;
 
+        // Flags from picker or determine from type
         isImage =
-          fileType.startsWith("image/") ||
+          file.isImage === true ||
+          (fileType && fileType.startsWith("image/")) ||
           ["jpg", "jpeg", "png", "gif", "bmp", "webp"].includes(fileExtension);
+
+        isVideo =
+          file.isVideo === true ||
+          (fileType && fileType.startsWith("video/")) ||
+          ["mp4", "mov", "avi", "webm", "mkv"].includes(fileExtension);
 
         fileObj = file;
       }
@@ -257,6 +348,7 @@ export default function ChatRoom() {
         fileExtension,
         fileSize,
         isImage,
+        isVideo,
       });
 
       // Upload file
@@ -286,7 +378,7 @@ export default function ChatRoom() {
       const docRef = doc(db, "rooms", roomId);
       const messageRef = collection(docRef, "messages");
 
-      // For web images, force these fields to ensure proper rendering
+      // Message data with enhanced type handling
       const messageData = {
         senderId: user?.uid,
         receiverId: item?.uid,
@@ -296,16 +388,22 @@ export default function ChatRoom() {
         fileType: fileType,
         fileSize: fileSize,
         isImage: isImage,
+        isVideo: isVideo,
         profileUrl: user?.profileUrl,
         senderName: user?.username,
         createdAt: serverTimestamp(),
         seen: false,
       };
 
-      // Extra properties for web images to ensure they render correctly
+      // Extra properties for web media to ensure they render correctly
       if (isImage) {
         messageData._isWebImage = true;
         messageData._imageExtension = fileExtension;
+      }
+
+      if (isVideo) {
+        messageData._isWebVideo = true;
+        messageData._videoExtension = fileExtension;
       }
 
       await addDoc(messageRef, messageData);
@@ -336,6 +434,61 @@ export default function ChatRoom() {
       }).start();
     }
   }, [showAttachmentOptions, slideAnimation]);
+
+  // Function to show media preview with animation
+  const showMediaPreviewSheet = () => {
+    setShowMediaPreview(true);
+    Animated.timing(previewAnimation, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  // Function to hide media preview with animation
+  const hideMediaPreviewSheet = () => {
+    Animated.timing(previewAnimation, {
+      toValue: 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowMediaPreview(false);
+      setSelectedMedia([]);
+    });
+  };
+
+  // Function to send multiple media files
+  const sendSelectedMedia = async () => {
+    if (selectedMedia.length === 0) return;
+
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      // Upload each selected media file
+      for (let i = 0; i < selectedMedia.length; i++) {
+        const media = selectedMedia[i];
+        await uploadAndSendFile(media);
+        setUploadProgress(((i + 1) / selectedMedia.length) * 100);
+      }
+
+      // Close the preview after sending
+      hideMediaPreviewSheet();
+    } catch (error) {
+      console.error("Error sending media:", error);
+      Alert.alert("Error", "Failed to send one or more media files");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Function to remove a media item from selection
+  const removeMediaItem = (index) => {
+    setSelectedMedia((prev) => prev.filter((_, idx) => idx !== index));
+    if (selectedMedia.length <= 1) {
+      hideMediaPreviewSheet();
+    }
+  };
 
   // Create a chat room if it doesn't exist
   const createRoomIfNotExists = async () => {
@@ -456,13 +609,13 @@ export default function ChatRoom() {
               className="flex-row items-center px-4 py-3 border-b border-gray-100"
               onPress={() => {
                 setShowAttachmentOptions(false);
-                setTimeout(() => pickImage(), 100);
+                setTimeout(() => pickMedia(), 100);
               }}
             >
               <View className="w-8 h-8 bg-blue-50 rounded-full items-center justify-center mr-3">
-                <Ionicons name="image" size={hp(2)} color="#0084ff" />
+                <Ionicons name="images" size={hp(2)} color="#0084ff" />
               </View>
-              <Text className="text-gray-800">Image</Text>
+              <Text className="text-gray-800">Image/Video</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -520,13 +673,13 @@ export default function ChatRoom() {
                   className="items-center"
                   onPress={() => {
                     toggleAttachmentMenu();
-                    setTimeout(() => pickImage(), 300);
+                    setTimeout(() => pickMedia(), 300);
                   }}
                 >
                   <View className="w-14 h-14 bg-blue-50 rounded-full items-center justify-center mb-2">
-                    <Ionicons name="image" size={hp(3.5)} color="#0084ff" />
+                    <Ionicons name="images" size={hp(3.5)} color="#0084ff" />
                   </View>
-                  <Text className="text-sm text-gray-800">Image</Text>
+                  <Text className="text-sm text-gray-800">Image/Video</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -563,6 +716,134 @@ export default function ChatRoom() {
     }
   };
 
+  // Render media preview component (Messenger style)
+  const renderMediaPreview = () => {
+    if (!showMediaPreview) return null;
+
+    return (
+      <Modal
+        transparent={true}
+        visible={showMediaPreview}
+        animationType="none"
+        onRequestClose={hideMediaPreviewSheet}
+      >
+        <View className="flex-1 bg-black/50">
+          <Animated.View
+            className="absolute bottom-0 w-full bg-white rounded-t-3xl shadow-lg"
+            style={{
+              transform: [
+                {
+                  translateY: previewAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [400, 0],
+                  }),
+                },
+              ],
+            }}
+          >
+            {/* Header */}
+            <View className="flex-row justify-between items-center border-b border-gray-200 p-4">
+              <TouchableOpacity onPress={hideMediaPreviewSheet}>
+                <AntDesign name="close" size={hp(2.5)} color="#000" />
+              </TouchableOpacity>
+              <Text className="text-lg font-semibold">
+                Send{" "}
+                {selectedMedia.length > 1
+                  ? selectedMedia.length + " items"
+                  : ""}
+              </Text>
+              <TouchableOpacity
+                onPress={sendSelectedMedia}
+                className="bg-blue-500 rounded-full px-4 py-2"
+              >
+                <Text className="text-white font-medium">Send</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Preview Grid */}
+            <View style={{ maxHeight: hp(50) }}>
+              <FlatList
+                data={selectedMedia}
+                keyExtractor={(_, index) => index.toString()}
+                contentContainerStyle={{ padding: 10 }}
+                numColumns={3}
+                renderItem={({ item, index }) => (
+                  <View className="m-1 relative" style={{ width: wp(29) }}>
+                    {item.isImage ? (
+                      <Image
+                        source={{ uri: item.uri }}
+                        className="rounded-lg"
+                        style={{
+                          width: wp(29),
+                          height: wp(29),
+                          backgroundColor: "#f0f0f0",
+                        }}
+                      />
+                    ) : item.isVideo ? (
+                      <View
+                        className="rounded-lg justify-center items-center"
+                        style={{
+                          width: wp(29),
+                          height: wp(29),
+                          backgroundColor: "#f0f0f0",
+                        }}
+                      >
+                        <Image
+                          source={{ uri: item.uri }}
+                          style={{
+                            width: wp(29),
+                            height: wp(29),
+                            position: "absolute",
+                          }}
+                          className="rounded-lg"
+                        />
+                        <View className="bg-black/50 rounded-full p-2">
+                          <Ionicons name="play" size={hp(3)} color="white" />
+                        </View>
+                      </View>
+                    ) : (
+                      <View
+                        className="rounded-lg justify-center items-center"
+                        style={{
+                          width: wp(29),
+                          height: wp(29),
+                          backgroundColor: "#f0f0f0",
+                        }}
+                      >
+                        <FontAwesome
+                          name={item.isImage ? "file-image-o" : "file-video-o"}
+                          size={hp(3)}
+                          color="#0084ff"
+                        />
+                      </View>
+                    )}
+
+                    {/* Remove button */}
+                    <TouchableOpacity
+                      className="absolute top-1 right-1 bg-black/70 rounded-full p-1"
+                      onPress={() => removeMediaItem(index)}
+                    >
+                      <AntDesign name="close" size={hp(1.8)} color="white" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              />
+            </View>
+
+            {/* Caption input - Optional */}
+            <View className="p-3 border-t border-gray-200">
+              <TextInput
+                placeholder="Add a caption..."
+                className="bg-gray-100 py-2 px-4 rounded-full text-base"
+                style={{ fontSize: hp(2) }}
+              />
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
+    );
+  };
+
   // Handle file attachment options - simplified for both platforms
   const handleMenuPress = () => {
     if (Platform.OS === "web") {
@@ -585,87 +866,105 @@ export default function ChatRoom() {
           headerShadowVisible: false,
         }}
       />
-      <View className="flex-1 bg-white">
-        <StatusBar style="dark" />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={hp(1.5)} // Reduced offset
+      >
+        <View className="flex-1 bg-white">
+          <StatusBar style="dark" />
 
-        {/* Use platform-specific attachment menu */}
-        {renderAttachmentMenu()}
+          {/* Use platform-specific attachment menu */}
+          {renderAttachmentMenu()}
 
-        {/* Main chat interface */}
-        <View className="flex-1 justify-between bg-neutral-00 overflow-visible">
-          {/* Message list */}
-          <View className="flex-1">
-            <MessageList messages={messages} currentUser={user} />
-          </View>
+          {/* Media preview component (Messenger style) */}
+          {renderMediaPreview()}
 
-          {/* Upload progress indicator */}
-          {isUploading && (
-            <View className="bg-blue-50 px-4 py-2 flex-row items-center justify-between">
-              <View className="flex-row items-center">
-                <ActivityIndicator size="small" color="#0084ff" />
-                <Text className="ml-2 text-blue-600">
-                  Uploading file... {uploadProgress.toFixed(0)}%
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => {
-                  cancelActiveUpload();
-                  setIsUploading(false);
-                }}
-                className="bg-red-100 rounded-full p-1"
-              >
-                <AntDesign name="close" size={hp(2)} color="red" />
-              </TouchableOpacity>
+          {/* Main chat interface */}
+          <View className="flex-1 justify-between bg-neutral-00 overflow-visible">
+            {/* Message list */}
+            <View className="flex-1">
+              <MessageList
+                messages={messages.map((message) => ({
+                  ...message,
+                  id:
+                    message.id ||
+                    message.createdAt?.toMillis() ||
+                    Math.random().toString(36).substr(2, 9), // Ensure unique key
+                }))}
+                currentUser={user}
+              />
             </View>
-          )}
 
-          {/* Message input area */}
-          <View className="pt-2 pb-2 bg-white border-t border-gray-200">
-            <View className="flex-row items-center mx-2 my-1">
-              {/* Menu button - updated with proper positioning for web dropdown */}
-              <View className="relative">
+            {/* Upload progress indicator */}
+            {isUploading && (
+              <View className="bg-blue-50 px-4 py-2 flex-row items-center justify-between">
+                <View className="flex-row items-center">
+                  <ActivityIndicator size="small" color="#0084ff" />
+                  <Text className="ml-2 text-blue-600">
+                    Uploading file... {uploadProgress.toFixed(0)}%
+                  </Text>
+                </View>
                 <TouchableOpacity
-                  onPress={handleMenuPress}
-                  className="p-2 bg-blue-50 rounded-full"
+                  onPress={() => {
+                    cancelActiveUpload();
+                    setIsUploading(false);
+                  }}
+                  className="bg-red-100 rounded-full p-1"
                 >
-                  <Ionicons name="attach" size={hp(2.4)} color="#0084ff" />
+                  <AntDesign name="close" size={hp(2)} color="red" />
                 </TouchableOpacity>
               </View>
+            )}
 
-              {/* Text input + send button */}
-              <View
-                className="flex-row flex-1 bg-gray-100 px-3 rounded-full ml-1"
-                style={{
-                  alignItems: "center",
-                  minHeight: hp(5),
-                }}
-              >
-                <TextInput
-                  ref={inputRef}
-                  placeholder="Type a message..."
-                  className="flex-1 py-2 text-base text-neutral-800"
-                  multiline
-                  value={inputValue}
-                  onChangeText={(value) => {
-                    textRef.current = value;
-                    setInputValue(value);
-                  }}
+            {/* Message input area */}
+            <View className="pt-1 pb-1 bg-white border-t border-gray-200">
+              <View className="flex-row items-center mx-2 my-1">
+                {/* Menu button - updated with proper positioning for web dropdown */}
+                <View className="relative">
+                  <TouchableOpacity
+                    onPress={handleMenuPress}
+                    className="p-2 bg-blue-50 rounded-full"
+                  >
+                    <Ionicons name="attach" size={hp(2.4)} color="#0084ff" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Text input + send button */}
+                <View
+                  className="flex-row flex-1 bg-gray-100 px-3 rounded-full ml-1"
                   style={{
-                    fontSize: hp(2),
-                    minHeight: hp(4.5),
-                    maxHeight: hp(10),
-                    height: inputHeight,
-                    paddingVertical: 8,
+                    alignItems: "center",
+                    minHeight: hp(5),
                   }}
-                />
-                <TouchableOpacity onPress={handleSendMessage} className="p-2">
-                  <Ionicons name="send" size={hp(2.4)} color="#0084ff" />
-                </TouchableOpacity>
+                >
+                  <TextInput
+                    ref={inputRef}
+                    placeholder="Type a message..."
+                    className="flex-1 py-2 text-base text-neutral-800"
+                    multiline
+                    value={inputValue}
+                    onChangeText={(value) => {
+                      textRef.current = value;
+                      setInputValue(value);
+                    }}
+                    style={{
+                      fontSize: hp(2),
+                      minHeight: hp(4.5),
+                      maxHeight: hp(10),
+                      height: inputHeight,
+                      paddingVertical: 8,
+                    }}
+                  />
+                  <TouchableOpacity onPress={handleSendMessage} className="p-2">
+                    <Ionicons name="send" size={hp(2.4)} color="#0084ff" />
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </>
   );
 }
