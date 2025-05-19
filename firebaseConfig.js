@@ -45,3 +45,4 @@ export const groupsRef = collection(db, "groups"); // Reference to the 'groups' 
 
 // Initialize Firebase Storage
 export const storage = getStorage(app);
+export { firebaseConfig };
