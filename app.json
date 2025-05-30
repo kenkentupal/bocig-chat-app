@@ -8,15 +8,18 @@
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "ios": {
-      "supportsTablet": true
-    },
     "android": {
+      "package": "com.kentupal.BOCChatApp",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      },
-      "package": "com.kentupal.BOCChatApp"
+      }
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.kentupal.BOCChatApp",
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "web": {
       "bundler": "metro",
@@ -34,7 +37,17 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-build-properties"
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      "@react-native-firebase/crashlytics",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

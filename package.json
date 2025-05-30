@@ -21,6 +21,9 @@
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-firebase/analytics": "^22.2.0",
     "@react-native-firebase/app": "^22.2.0",
+    "@react-native-firebase/auth": "^22.2.0",
+    "@react-native-firebase/crashlytics": "^22.2.0",
+    "@react-native-firebase/firestore": "^22.2.0",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
     "@react-navigation/native-stack": "^7.2.0",
@@ -29,7 +32,9 @@
     "expo": "~52.0.43",
     "expo-av": "^15.0.2",
     "expo-blur": "~14.0.3",
+    "expo-build-properties": "~0.13.3",
     "expo-constants": "~17.0.8",
+    "expo-dev-client": "~5.0.20",
     "expo-document-picker": "~13.0.3",
     "expo-font": "~13.0.4",
     "expo-haptics": "~14.0.1",
@@ -61,9 +66,7 @@
     "react-native-webview": "13.12.5",
     "tailwindcss": "^3.4.17",
     "undici": "^4.2.0",
-    "zustand": "^5.0.3",
-    "expo-build-properties": "~0.13.3",
-    "expo-dev-client": "~5.0.20"
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

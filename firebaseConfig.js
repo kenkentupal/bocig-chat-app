@@ -27,15 +27,10 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize Auth with platform-specific persistence
 let auth;
-if (Platform.OS !== "web") {
-  // For React Native, explicitly use AsyncStorage persistence
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
-  });
-} else {
-  // For web, use default persistence
-  auth = getAuth(app);
-}
+// Only use initializeAuth for React Native (mobile only)
+auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage),
+});
 
 export { auth };
 export const db = getFirestore(app); // Initialize Firestore
