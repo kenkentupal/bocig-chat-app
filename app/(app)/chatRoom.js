@@ -55,6 +55,16 @@ export default function ChatRoom() {
   const { selectedChatUser: item, setSelectedChatUser } = useChat();
   const { user } = useAuth();
 
+  // Guard: if user is not loaded, show nothing or a loader
+  if (!user) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white">
+        <ActivityIndicator size="large" color="#6366f1" />
+        <Text className="mt-4 text-gray-500">Loading user...</Text>
+      </View>
+    );
+  }
+
   // Handle case where page is reloaded and selectedChatUser is lost
   useEffect(() => {
     if (!item?.uid) {
@@ -213,6 +223,8 @@ export default function ChatRoom() {
         setIsUploading(false);
         return;
       }
+      // Ensure room exists before sending file message
+      await createRoomIfNotExists();
       let roomId = getRoomId(user?.uid, item?.uid);
       const docRef = doc(db, "rooms", roomId);
       const messageRef = collection(docRef, "messages");
@@ -261,12 +273,29 @@ export default function ChatRoom() {
 
   // Create a chat room if it doesn't exist
   const createRoomIfNotExists = async () => {
-    let roomId = getRoomId(user?.uid, item?.uid);
+    let roomId;
+    let usersArr;
+    let groupName = null;
+    let groupAvatar = null;
+    if (item?.isGroup) {
+      // Group chat
+      roomId = item.uid;
+      usersArr = item.users; // This should be an array
+      groupName = item.groupName || null;
+      groupAvatar = item.groupAvatar || null;
+    } else {
+      // 1-to-1 chat
+      roomId = getRoomId(user?.uid, item?.uid);
+      usersArr = [user.uid, item.uid];
+    }
     await setDoc(
       doc(db, "rooms", roomId),
       {
         roomId,
-        users: [user.uid, item.uid],
+        users: usersArr, // Always an array
+        isGroup: !!item?.isGroup,
+        groupName,
+        groupAvatar,
         lastMessage: null,
         createdAt: serverTimestamp(),
       },
@@ -279,7 +308,7 @@ export default function ChatRoom() {
     if (!user?.uid || !item?.uid) return;
 
     try {
-      let roomId = getRoomId(user?.uid, item?.uid);
+      let roomId = item?.isGroup ? item.uid : getRoomId(user?.uid, item?.uid);
       const docRef = doc(db, "rooms", roomId);
       const messageRef = collection(docRef, "messages");
 
@@ -311,19 +340,22 @@ export default function ChatRoom() {
     if (!message) return;
 
     try {
-      let roomId = getRoomId(user?.uid, item?.uid);
+      // Ensure room exists before sending message
+      await createRoomIfNotExists();
+      let roomId = item?.isGroup ? item.uid : getRoomId(user?.uid, item?.uid);
       const docRef = doc(db, "rooms", roomId);
       const messageRef = collection(docRef, "messages");
 
       // Add message to Firestore
       await addDoc(messageRef, {
         senderId: user?.uid,
-        receiverId: item?.uid,
+        receiverId: item?.isGroup ? null : item?.uid,
         text: message,
         profileUrl: user?.profileUrl,
         senderName: user?.username,
         createdAt: serverTimestamp(),
         seen: false,
+        ...(item?.isGroup ? { groupId: item.uid, isGroup: true } : {}),
       });
 
       // Clear input
@@ -338,10 +370,8 @@ export default function ChatRoom() {
   useEffect(() => {
     if (!user?.uid || !item?.uid) return;
 
-    createRoomIfNotExists();
-
     // Set up listener for messages
-    let roomId = getRoomId(user?.uid, item?.uid);
+    let roomId = item?.isGroup ? item.uid : getRoomId(user?.uid, item?.uid);
     const docRef = doc(db, "rooms", roomId);
     const messageRef = collection(docRef, "messages");
     const q = query(messageRef, orderBy("createdAt", "asc"));
