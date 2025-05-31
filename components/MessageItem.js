@@ -7,7 +7,6 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
 
-
 export default function MessageItem({ message, currentUser }) {
   // Check if message is from current user
   const isCurrentUser = currentUser?.uid == message.senderId;
@@ -125,7 +124,7 @@ export default function MessageItem({ message, currentUser }) {
         {/* Message bubble */}
         <View style={bubbleStyle}>{renderMessageContent()}</View>
 
-        {/* Time and read receipt container */}
+        {/* Time, sending status, and read receipt container */}
         <View
           style={{
             flexDirection: "row",
@@ -136,24 +135,37 @@ export default function MessageItem({ message, currentUser }) {
             marginRight: isCurrentUser ? 2 : 0,
           }}
         >
-          {/* Time display */}
-          <Text
-            style={{
-              fontSize: hp(1.5),
-              color: "#65676B",
-              marginRight: isCurrentUser ? 4 : 0,
-            }}
-          >
-            {message.createdAt && message.createdAt.toDate
-              ? message.createdAt.toDate().toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "Just now"}
-          </Text>
+          {/* Time display or sending... */}
+          {message.isPending ? (
+            <Text
+              style={{
+                fontSize: hp(1.5),
+                color: "#0084ff",
+                fontStyle: "italic",
+                marginRight: isCurrentUser ? 4 : 0,
+              }}
+            >
+              sending...
+            </Text>
+          ) : (
+            <Text
+              style={{
+                fontSize: hp(1.5),
+                color: "#65676B",
+                marginRight: isCurrentUser ? 4 : 0,
+              }}
+            >
+              {message.createdAt && message.createdAt.toDate
+                ? message.createdAt.toDate().toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : ""}
+            </Text>
+          )}
 
           {/* Read receipt indicator (only shown for sent messages) */}
-          {isCurrentUser && (
+          {isCurrentUser && !message.isPending && (
             <View>
               {message?.seen ? (
                 <Ionicons

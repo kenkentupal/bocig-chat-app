@@ -8,7 +8,7 @@ import {
   TextInput,
   Image,
 } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useAuth } from "../../context/authContext";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -35,6 +35,8 @@ export default function home() {
   const [users, setUsers] = useState([]);
   const [chatUsers, setChatUsers] = useState([]); // users with chatrooms
   const [showUserModal, setShowUserModal] = useState(false);
+  // Add cache ref for chatUsers
+  const chatUsersCache = useRef({ userId: null, data: [] });
 
   // Add handler for back button in SearchUsers
   const handleSearchBack = () => setShowUserModal(false);
@@ -46,12 +48,22 @@ export default function home() {
 
   useEffect(() => {
     if (user?.uid) {
-      fetchChatUsers();
+      // Use cache if user is the same
+      if (
+        chatUsersCache.current.userId === user.uid &&
+        chatUsersCache.current.data.length > 0
+      ) {
+        setChatUsers(chatUsersCache.current.data);
+        // Fetch in background to update cache
+        fetchChatUsers(true);
+      } else {
+        fetchChatUsers();
+      }
     }
   }, [user]);
 
   // Fetch users with whom the current user has a chatroom
-  const fetchChatUsers = async () => {
+  const fetchChatUsers = async (background = false) => {
     const roomsQ = query(
       collection(db, "rooms"),
       where("users", "array-contains", user.uid)
@@ -72,8 +84,16 @@ export default function home() {
       querySnapshot.forEach((doc) => {
         data.push(doc.data());
       });
-      setChatUsers(data);
+      // Update cache
+      chatUsersCache.current = { userId: user.uid, data };
+      if (!background) setChatUsers(data);
+      if (
+        background &&
+        JSON.stringify(data) !== JSON.stringify(chatUsers)
+      )
+        setChatUsers(data);
     } else {
+      chatUsersCache.current = { userId: user.uid, data: [] };
       setChatUsers([]);
     }
   };
@@ -105,22 +125,8 @@ export default function home() {
 
   return (
     <View className="flex-1 items-center justify-center">
-      {/* Chat list or empty state */}
-      {chatUsers.length > 0 ? (
-        <ChatList currentUser={user} users={chatUsers} />
-      ) : (
-        <View className="flex-1 items-center justify-center">
-          <Text className="text-lg text-gray-500 mb-4">No chats yet</Text>
-          <TouchableOpacity
-            onPress={handleOpenUserModal}
-            className="bg-indigo-500 px-6 py-2 rounded-full"
-          >
-            <Text className="text-white text-base font-semibold">
-              Start a Chat
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      <ChatList currentUser={user} users={chatUsers} />
+
       {/* Floating + button at lower right */}
       <TouchableOpacity
         onPress={handleOpenUserModal}

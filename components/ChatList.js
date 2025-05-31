@@ -1,5 +1,5 @@
 import { View, Text, FlatList } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import ChatItem from "./ChatItem";
 import { useRouter } from "expo-router";
 import { db } from "../firebaseConfig";
@@ -17,8 +17,25 @@ export default function ChatList({ users, currentUser }) {
   const router = useRouter();
   const [latestMessages, setLatestMessages] = useState({});
   const [unreadMessages, setUnreadMessages] = useState({});
+  // Add refs for caching
+  const cacheRef = useRef({
+    users: [],
+    currentUser: null,
+    latestMessages: {},
+    unreadMessages: {},
+  });
 
   useEffect(() => {
+    // Show cached data immediately if available
+    if (
+      JSON.stringify(cacheRef.current.users) === JSON.stringify(users) &&
+      JSON.stringify(cacheRef.current.currentUser) ===
+        JSON.stringify(currentUser)
+    ) {
+      setLatestMessages(cacheRef.current.latestMessages);
+      setUnreadMessages(cacheRef.current.unreadMessages);
+    }
+
     if (!currentUser || users.length === 0) return;
 
     // Clean up previous listeners
@@ -37,22 +54,29 @@ export default function ChatList({ users, currentUser }) {
 
       const unsub = onSnapshot(q, (snap) => {
         const msg = snap.docs[0]?.data() || null;
-        setLatestMessages((prev) => ({
-          ...prev,
-          [user.uid]: msg,
-        }));
+        setLatestMessages((prev) => {
+          const updated = { ...prev, [user.uid]: msg };
+          // Update cache
+          cacheRef.current.latestMessages = updated;
+          return updated;
+        });
 
         // Check if message is unread (sent by other user and not seen)
         if (msg && msg.senderId !== me.uid && !msg.seen) {
-          setUnreadMessages((prev) => ({
-            ...prev,
-            [user.uid]: true,
-          }));
+          setUnreadMessages((prev) => {
+            const updated = { ...prev, [user.uid]: true };
+            cacheRef.current.unreadMessages = updated;
+            return updated;
+          });
         }
       });
 
       unsubscribes.push(unsub);
     });
+
+    // Update cache for users and currentUser
+    cacheRef.current.users = users;
+    cacheRef.current.currentUser = currentUser;
 
     return () => {
       unsubscribes.forEach((unsub) => unsub && unsub());
@@ -104,7 +128,6 @@ export default function ChatList({ users, currentUser }) {
             onPress={() => handleChatOpen(item.uid)}
           />
         )}
-        ListEmptyComponent={<Text>No chats available</Text>}
       />
     </View>
   );

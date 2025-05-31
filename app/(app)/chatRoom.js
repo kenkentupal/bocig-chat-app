@@ -48,6 +48,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import * as ScreenCapture from "expo-screen-capture";
+import NetInfo from "@react-native-community/netinfo";
 
 export default function ChatRoom() {
   // Hooks
@@ -76,6 +77,7 @@ export default function ChatRoom() {
   const [inputValue, setInputValue] = useState("");
   const [inputHeight, setInputHeight] = useState(hp(5.5));
   const [messages, setMessages] = useState([]);
+  const [pendingMessages, setPendingMessages] = useState([]); // For optimistic UI
   const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
   const slideAnimation = useRef(new Animated.Value(0)).current;
 
@@ -339,6 +341,32 @@ export default function ChatRoom() {
     let message = textRef.current.trim();
     if (!message) return;
 
+    // Optimistically add message to pendingMessages
+    const tempId = `pending-${Date.now()}`;
+    const pendingMsg = {
+      id: tempId,
+      senderId: user?.uid,
+      receiverId: item?.isGroup ? null : item?.uid,
+      text: message,
+      profileUrl: user?.profileUrl,
+      senderName: user?.username,
+      createdAt: new Date(),
+      seen: false,
+      isPending: true,
+      ...(item?.isGroup ? { groupId: item.uid, isGroup: true } : {}),
+    };
+    setPendingMessages((prev) => [...prev, pendingMsg]);
+    setInputValue("");
+    textRef.current = "";
+
+    // Check internet connection before sending
+    const netState = await NetInfo.fetch();
+    if (!netState.isConnected) {
+      Alert.alert("No Internet", "Please check your internet connection");
+      // Keep the pending message with 'sending...' status
+      return;
+    }
+
     try {
       // Ensure room exists before sending message
       await createRoomIfNotExists();
@@ -358,10 +386,10 @@ export default function ChatRoom() {
         ...(item?.isGroup ? { groupId: item.uid, isGroup: true } : {}),
       });
 
-      // Clear input
-      setInputValue("");
-      textRef.current = "";
+      // Remove from pendingMessages on success
+      setPendingMessages((prev) => prev.filter((msg) => msg.id !== tempId));
     } catch (error) {
+      // Keep the pending message with 'sending...' status
       Alert.alert("Error sending message: ", error);
     }
   };
@@ -371,7 +399,7 @@ export default function ChatRoom() {
     if (!user?.uid || !item?.uid) return;
 
     // Set up listener for messages
-    let roomId = item?.isGroup ? item.uid : getRoomId(user?.uid, item?.uid);
+    let roomId = getRoomId(user?.uid, item?.uid);
     const docRef = doc(db, "rooms", roomId);
     const messageRef = collection(docRef, "messages");
     const q = query(messageRef, orderBy("createdAt", "asc"));
@@ -381,7 +409,23 @@ export default function ChatRoom() {
       let messages = querySnapshot.docs.map((doc) => {
         return { id: doc.id, ...doc.data() };
       });
+
+      // Filter out pendingMessages that already have a matching confirmed message
+      const filteredPendingMessages = pendingMessages.filter((pendingMsg) => {
+        return !messages.some(
+          (msg) =>
+            msg.text === pendingMsg.text &&
+            msg.senderId === pendingMsg.senderId &&
+            Math.abs(
+              new Date(msg.createdAt?.toDate?.() || msg.createdAt).getTime() -
+                new Date(pendingMsg.createdAt).getTime()
+            ) < 60000
+        );
+      });
+
+      // Update state with new messages and filtered pending messages
       setMessages(messages);
+      setPendingMessages(filteredPendingMessages);
 
       // Mark messages as seen when loaded
       markMessagesAsSeen();
@@ -509,7 +553,10 @@ export default function ChatRoom() {
         <View className="flex-1 justify-between bg-neutral-00 overflow-visible">
           {/* Message list */}
           <View className="flex-1">
-            <MessageList messages={messages} currentUser={user} />
+            <MessageList
+              messages={[...messages, ...pendingMessages]}
+              currentUser={user}
+            />
           </View>
 
           {/* Upload progress indicator */}
