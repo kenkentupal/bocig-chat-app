@@ -5,6 +5,9 @@ import { Slot, useSegments, useRouter } from "expo-router";
 import { useAuth, AuthProvider } from "../context/authContext";
 import { MenuProvider } from "react-native-popup-menu";
 import { ChatProvider } from "../context/chatContext";
+import { PermissionsAndroid } from "react-native";
+import messaging from "@react-native-firebase/messaging";
+PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
 
 const MainLayout = () => {
   const { isAuthenticated } = useAuth();

@@ -19,7 +19,10 @@ import Loading from "../components/Loading.js";
 import { Platform } from "react-native";
 import { useAuth } from "../context/authContext";
 import CustomKeyboardView from "../components/CustomKeyboardView.js";
-
+import messaging from "@react-native-firebase/messaging";
+import { useEffect } from "react";
+import { doc, setDoc, updateDoc } from "firebase/firestore";
+import { db } from "../firebaseConfig";
 export default function signIn() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -27,6 +30,50 @@ export default function signIn() {
 
   const emailRef = useRef("");
   const passwordRef = useRef("");
+
+  async function requestUserPermission() {
+    const authStatus = await messaging().requestPermission();
+    const enabled =
+      authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+      authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+    if (enabled) {
+      console.log("Authorization status:", authStatus);
+    }
+  }
+
+  const getToken = async () => {
+    try {
+      console.log("Calling getToken...");
+      const token = await messaging().getToken();
+      if (token) {
+        console.log("FCM Token:", token);
+      } else {
+        console.log("No FCM token received.");
+      }
+      return token;
+    } catch (error) {
+      console.log("Error getting FCM token:", error);
+    }
+  };
+
+  // Helper function to save FCM token to Firestore
+  const saveFcmTokenToFirestore = async (uid, token) => {
+    if (!uid || !token) return;
+    try {
+      const userRef = doc(db, "users", uid);
+      await updateDoc(userRef, { fcmToken: token });
+      console.log("FCM token saved to Firestore");
+    } catch (error) {
+      console.log("Error saving FCM token to Firestore:", error);
+    }
+  };
+
+  useEffect(() => {
+    console.log("useEffect running");
+    getToken();
+    requestUserPermission();
+  }, []);
 
   const handleSignIn = async () => {
     if (!emailRef.current || !passwordRef.current) {
@@ -44,6 +91,18 @@ export default function signIn() {
         "Sign In",
         response.error?.message || "An error occurred. Please try again."
       );
+    } else {
+      // Get FCM token and save to Firestore
+      try {
+        const token = await getToken();
+        // Get current user UID from Firebase Auth
+        const user = require("firebase/auth").getAuth().currentUser;
+        if (user && token) {
+          await saveFcmTokenToFirestore(user.uid, token);
+        }
+      } catch (e) {
+        console.log("Error saving FCM token after login:", e);
+      }
     }
   };
 
@@ -52,7 +111,6 @@ export default function signIn() {
       <StatusBar style="auto" />
       <View
         style={{
- 
           paddingHorizontal: wp(5),
           alignItems: "center",
           justifyContent: "center",
@@ -227,7 +285,6 @@ export default function signIn() {
                 fontSize: hp(1.8),
                 color: "gray",
                 textAlign: "center",
-            
               }}
             >
               Don't have an account?{" "}
