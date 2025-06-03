@@ -553,27 +553,9 @@ export default function ChatRoom() {
         <View className="flex-1 justify-between bg-neutral-00 overflow-visible">
           {/* Message list */}
           <View className="flex-1">
-            {/* Render system-indicator messages as small, centered text */}
-            {[...messages, ...pendingMessages].map((msg) =>
-              msg.type === "system-indicator" || msg.system ? (
-                <View
-                  key={msg.id}
-                  style={{ alignItems: "center", marginVertical: 6 }}
-                >
-                  <Text
-                    style={{ color: "#888", fontSize: 13, textAlign: "center" }}
-                  >
-                    {msg.text}
-                  </Text>
-                </View>
-              ) : null
-            )}
-            {/* Message list (excluding system-indicator) */}
+            {/* Message list (including system-indicator) */}
             <MessageList
-              messages={[...messages, ...pendingMessages].filter(
-                (msg) =>
-                  !msg.type || (msg.type !== "system-indicator" && !msg.system)
-              )}
+              messages={[...messages, ...pendingMessages]}
               currentUser={user}
             />
           </View>

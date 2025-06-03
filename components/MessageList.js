@@ -7,8 +7,7 @@ import {
   widthPercentageToDP as wp,
 } from "react-native-responsive-screen";
 import { Ionicons } from "@expo/vector-icons";
-
-import { View, Text, Image } from "react-native";
+import { View, Text, Image, StyleSheet } from "react-native";
 
 export default function MessageList({ messages, currentUser }) {
   const scrollViewRef = useRef(null);
@@ -167,6 +166,49 @@ export default function MessageList({ messages, currentUser }) {
     );
   };
 
+  const renderItem = ({ item }) => {
+    // System-indicator style (Messenger/Viber style)
+    if (item.type === "system-indicator" || item.system) {
+      return (
+        <View style={styles.systemContainer}>
+          <Text style={styles.systemText}>{item.text}</Text>
+        </View>
+      );
+    }
+    const isImage = isImageFile(item);
+    const isVideo =
+      item.fileType && item.fileType.startsWith("video/");
+    const isFile = item.fileUrl;
+    const isCurrentUser = item.senderId === currentUser?.uid;
+    if (isImage || isVideo || isFile) {
+      return renderFileMessage(item, isCurrentUser);
+    }
+    // For regular text messages
+    return (
+      <View
+        key={item.id}
+        className={`mb-1.5 ${isCurrentUser ? "pr-3 pl-14" : "pl-3 pr-14"}`}
+      >
+        <View
+          className={`flex-row items-start ${isCurrentUser ? "justify-end" : ""}`}
+        >
+          {!isCurrentUser && (
+            <View className="h-8 w-8 mr-2 mt-1">
+              <Image
+                source={{
+                  uri:
+                    item.profileUrl || "https://placekitten.com/200/200",
+                }}
+                className="w-8 h-8 rounded-full bg-gray-300"
+              />
+            </View>
+          )}
+          <MessageItem message={item} currentUser={currentUser} />
+        </View>
+      </View>
+    );
+  };
+
   return (
     <FlatList
       ref={scrollViewRef}
@@ -175,40 +217,7 @@ export default function MessageList({ messages, currentUser }) {
       keyExtractor={(item, index) =>
         item.id ? item.id.toString() : index.toString()
       }
-      renderItem={({ item: message, index }) => {
-        const isImage = isImageFile(message);
-        const isVideo =
-          message.fileType && message.fileType.startsWith("video/");
-        const isFile = message.fileUrl;
-        const isCurrentUser = message.senderId === currentUser?.uid;
-        if (isImage || isVideo || isFile) {
-          return renderFileMessage(message, isCurrentUser);
-        }
-        // For regular text messages
-        return (
-          <View
-            key={message.id || index}
-            className={`mb-1.5 ${isCurrentUser ? "pr-3 pl-14" : "pl-3 pr-14"}`}
-          >
-            <View
-              className={`flex-row items-start ${isCurrentUser ? "justify-end" : ""}`}
-            >
-              {!isCurrentUser && (
-                <View className="h-8 w-8 mr-2 mt-1">
-                  <Image
-                    source={{
-                      uri:
-                        message.profileUrl || "https://placekitten.com/200/200",
-                    }}
-                    className="w-8 h-8 rounded-full bg-gray-300"
-                  />
-                </View>
-              )}
-              <MessageItem message={message} currentUser={currentUser} />
-            </View>
-          </View>
-        );
-      }}
+      renderItem={renderItem}
       ListFooterComponent={
         visibleCount < messages.length ? (
           <View style={{ alignItems: "center", paddingVertical: 8 }}>
@@ -227,3 +236,19 @@ export default function MessageList({ messages, currentUser }) {
     />
   );
 }
+
+const styles = StyleSheet.create({
+  systemContainer: {
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  systemText: {
+    color: '#888',
+    fontSize: 13,
+    fontStyle: 'italic',
+    backgroundColor: 'transparent',
+    textAlign: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 2,
+  },
+});
