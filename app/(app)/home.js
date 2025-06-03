@@ -87,10 +87,7 @@ export default function home() {
       // Update cache
       chatUsersCache.current = { userId: user.uid, data };
       if (!background) setChatUsers(data);
-      if (
-        background &&
-        JSON.stringify(data) !== JSON.stringify(chatUsers)
-      )
+      if (background && JSON.stringify(data) !== JSON.stringify(chatUsers))
         setChatUsers(data);
     } else {
       chatUsersCache.current = { userId: user.uid, data: [] };

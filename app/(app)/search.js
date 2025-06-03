@@ -108,7 +108,7 @@ export default function SearchUsers({
           (uid === currentUser.uid ? currentUser : null);
         return u ? u.username : uid;
       }),
-      groupName: `Group (${groupMembers.length})`,
+      groupName: `Group Chat`,
       groupAvatar: null, // You can add group avatar logic
       uid: groupId, // Use random group id
     });
