@@ -398,8 +398,8 @@ export default function ChatRoom() {
   useEffect(() => {
     if (!user?.uid || !item?.uid) return;
 
-    // Set up listener for messages
-    let roomId = getRoomId(user?.uid, item?.uid);
+    // Use correct roomId for group or 1-to-1
+    let roomId = item?.isGroup ? item.uid : getRoomId(user?.uid, item?.uid);
     const docRef = doc(db, "rooms", roomId);
     const messageRef = collection(docRef, "messages");
     const q = query(messageRef, orderBy("createdAt", "asc"));
@@ -553,8 +553,27 @@ export default function ChatRoom() {
         <View className="flex-1 justify-between bg-neutral-00 overflow-visible">
           {/* Message list */}
           <View className="flex-1">
+            {/* Render system-indicator messages as small, centered text */}
+            {[...messages, ...pendingMessages].map((msg) =>
+              msg.type === "system-indicator" || msg.system ? (
+                <View
+                  key={msg.id}
+                  style={{ alignItems: "center", marginVertical: 6 }}
+                >
+                  <Text
+                    style={{ color: "#888", fontSize: 13, textAlign: "center" }}
+                  >
+                    {msg.text}
+                  </Text>
+                </View>
+              ) : null
+            )}
+            {/* Message list (excluding system-indicator) */}
             <MessageList
-              messages={[...messages, ...pendingMessages]}
+              messages={[...messages, ...pendingMessages].filter(
+                (msg) =>
+                  !msg.type || (msg.type !== "system-indicator" && !msg.system)
+              )}
               currentUser={user}
             />
           </View>

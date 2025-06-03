@@ -71,6 +71,25 @@ export default function ChatItem({
   };
 
   const renderMessagePreview = () => {
+    if (item.isGroup) {
+      if (!lastMsg) {
+        return (
+          <Text className="text-neutral-400 text-[15px]">No messages yet</Text>
+        );
+      }
+      return (
+        <Text
+          className={
+            isUnread
+              ? "text-neutral-800 text-[15px] font-bold"
+              : "text-neutral-500 text-[15px]"
+          }
+          numberOfLines={1}
+        >
+          {lastMsg.text || "(media)"}
+        </Text>
+      );
+    }
     if (!lastMsg) {
       return <Text className="text-neutral-400 text-[15px]">Say Hi 👋</Text>;
     }
@@ -134,13 +153,40 @@ export default function ChatItem({
       }`}
       onPress={handlePress}
     >
-      {/* User Avatar with unread indicator */}
+      {/* User/Group Avatar with unread indicator */}
       <View className="relative">
-        <Image
-          source={{ uri: item?.profileUrl }}
-          style={{ height: hp(6), width: hp(6), borderRadius: 100 }}
-          className="rounded-full"
-        />
+        {item.isGroup ? (
+          item.groupAvatar ? (
+            <Image
+              source={{ uri: item.groupAvatar }}
+              style={{ height: hp(6), width: hp(6), borderRadius: 100 }}
+              className="rounded-full"
+            />
+          ) : (
+            <View
+              style={{
+                height: hp(6),
+                width: hp(6),
+                borderRadius: 100,
+                backgroundColor: "#e0e7ff",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text
+                style={{ color: "#6366f1", fontWeight: "bold", fontSize: 22 }}
+              >
+                {item.groupName?.[0] || "G"}
+              </Text>
+            </View>
+          )
+        ) : (
+          <Image
+            source={{ uri: item?.profileUrl }}
+            style={{ height: hp(6), width: hp(6), borderRadius: 100 }}
+            className="rounded-full"
+          />
+        )}
 
         {/* Unread message indicator dot */}
         {isUnread && (
@@ -163,19 +209,19 @@ export default function ChatItem({
             isUnread ? "font-bold" : "font-semibold"
           }`}
         >
-          {item?.username || "User"}
+          {item.isGroup ? item.groupName : item?.username || "User"}
         </Text>
         {renderMessagePreview()}
       </View>
 
       {/* Timestamp with unread styling */}
-      {lastMsg?.createdAt && (
+      {(lastMsg?.createdAt || item.createdAt) && (
         <Text
           className={`text-xs ${
             isUnread ? "text-blue-500 font-bold" : "text-gray-400"
           }`}
         >
-          {formatTime(lastMsg.createdAt)}
+          {formatTime(lastMsg?.createdAt || item.createdAt)}
         </Text>
       )}
     </TouchableOpacity>

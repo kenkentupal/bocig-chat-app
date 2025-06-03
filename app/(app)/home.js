@@ -62,37 +62,50 @@ export default function home() {
     }
   }, [user]);
 
-  // Fetch users with whom the current user has a chatroom
+  // Fetch both 1-to-1 and group chats
   const fetchChatUsers = async (background = false) => {
     const roomsQ = query(
       collection(db, "rooms"),
       where("users", "array-contains", user.uid)
     );
     const roomsSnap = await getDocs(roomsQ);
-    const chatUserIds = new Set();
-    roomsSnap.forEach((doc) => {
-      const usersArr = doc.data().users || [];
-      usersArr.forEach((uid) => {
-        if (uid !== user.uid) chatUserIds.add(uid);
-      });
+    let chatUserIds = new Set();
+    let groupChats = [];
+    roomsSnap.forEach((docSnap) => {
+      const room = docSnap.data();
+      if (room.isGroup) {
+        groupChats.push({
+          ...room,
+          uid: room.roomId, // for key
+          createdAt:
+            room.createdAt ||
+            docSnap.data().createdAt ||
+            docSnap.createTime ||
+            new Date(),
+        });
+      } else {
+        const usersArr = room.users || [];
+        usersArr.forEach((uid) => {
+          if (uid !== user.uid) chatUserIds.add(uid);
+        });
+      }
     });
+    let data = [];
     if (chatUserIds.size > 0) {
       // Fetch user data for these ids
       const q = query(usersRef, where("uid", "in", Array.from(chatUserIds)));
       const querySnapshot = await getDocs(q);
-      let data = [];
       querySnapshot.forEach((doc) => {
         data.push(doc.data());
       });
-      // Update cache
-      chatUsersCache.current = { userId: user.uid, data };
-      if (!background) setChatUsers(data);
-      if (background && JSON.stringify(data) !== JSON.stringify(chatUsers))
-        setChatUsers(data);
-    } else {
-      chatUsersCache.current = { userId: user.uid, data: [] };
-      setChatUsers([]);
     }
+    // Add group chats to the list
+    const allChats = [...groupChats, ...data];
+    // Update cache
+    chatUsersCache.current = { userId: user.uid, data: allChats };
+    if (!background) setChatUsers(allChats);
+    if (background && JSON.stringify(allChats) !== JSON.stringify(chatUsers))
+      setChatUsers(allChats);
   };
 
   // Open user search modal

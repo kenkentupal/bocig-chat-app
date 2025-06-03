@@ -45,7 +45,10 @@ export default function ChatList({ users, currentUser }) {
       const me = Array.isArray(currentUser) ? currentUser[0] : currentUser;
       if (!me?.uid || !user?.uid) return;
 
-      const roomId = getRoomId(me.uid, user.uid);
+      // Use correct roomId for group chats
+      const roomId = user.isGroup
+        ? user.roomId || user.uid
+        : getRoomId(me.uid, user.uid);
       const q = query(
         collection(doc(db, "rooms", roomId), "messages"),
         orderBy("createdAt", "desc"),
@@ -100,12 +103,14 @@ export default function ChatList({ users, currentUser }) {
     }
   };
 
-  // Sort users by latest message timestamp (desc)
+  // Sort users and group chats by latest message timestamp (desc)
   const sortedUsers = [...users].sort((a, b) => {
     const aMsg = latestMessages[a.uid];
     const bMsg = latestMessages[b.uid];
-    const aTime = aMsg?.createdAt?.toMillis?.() || 0;
-    const bTime = bMsg?.createdAt?.toMillis?.() || 0;
+    const aTime =
+      aMsg?.createdAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0;
+    const bTime =
+      bMsg?.createdAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0;
     return bTime - aTime;
   });
 
