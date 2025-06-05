@@ -7,7 +7,7 @@ import {
   widthPercentageToDP as wp,
 } from "react-native-responsive-screen";
 import { Ionicons } from "@expo/vector-icons";
-import { View, Text, Image, StyleSheet } from "react-native";
+import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
 
 export default function MessageList({ messages, currentUser }) {
   const scrollViewRef = useRef(null);
@@ -176,8 +176,7 @@ export default function MessageList({ messages, currentUser }) {
       );
     }
     const isImage = isImageFile(item);
-    const isVideo =
-      item.fileType && item.fileType.startsWith("video/");
+    const isVideo = item.fileType && item.fileType.startsWith("video/");
     const isFile = item.fileUrl;
     const isCurrentUser = item.senderId === currentUser?.uid;
     if (isImage || isVideo || isFile) {
@@ -196,8 +195,7 @@ export default function MessageList({ messages, currentUser }) {
             <View className="h-8 w-8 mr-2 mt-1">
               <Image
                 source={{
-                  uri:
-                    item.profileUrl || "https://placekitten.com/200/200",
+                  uri: item.profileUrl || "https://placekitten.com/200/200",
                 }}
                 className="w-8 h-8 rounded-full bg-gray-300"
               />
@@ -220,11 +218,17 @@ export default function MessageList({ messages, currentUser }) {
       renderItem={renderItem}
       ListFooterComponent={
         visibleCount < messages.length ? (
-          <View style={{ alignItems: "center", paddingVertical: 8 }}>
-            <Text style={{ color: "#888", fontSize: 14 }}>
+          <TouchableOpacity
+            onPress={handleLoadMore}
+            activeOpacity={0.7}
+            style={{ alignItems: "center", paddingVertical: 8 }}
+          >
+            <Text
+              style={{ color: "#0084ff", fontSize: 14, fontWeight: "bold" }}
+            >
               See older messages
             </Text>
-          </View>
+          </TouchableOpacity>
         ) : null
       }
       showsVerticalScrollIndicator={false}
@@ -239,15 +243,15 @@ export default function MessageList({ messages, currentUser }) {
 
 const styles = StyleSheet.create({
   systemContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginVertical: 8,
   },
   systemText: {
-    color: '#888',
+    color: "#888",
     fontSize: 13,
-    fontStyle: 'italic',
-    backgroundColor: 'transparent',
-    textAlign: 'center',
+    fontStyle: "italic",
+    backgroundColor: "transparent",
+    textAlign: "center",
     paddingHorizontal: 12,
     paddingVertical: 2,
   },

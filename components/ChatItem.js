@@ -34,12 +34,15 @@ export default function ChatItem({
   // Subscribe to unread state only
   useEffect(() => {
     const userId = getCurrentUserId();
-    if (!userId || !item?.uid || !lastMsg) return;
+    if (!userId || !lastMsg) return;
 
-    // Set unread state if message is from other user and not seen
-    setIsUnread(
-      lastMsg && lastMsg.senderId === item.uid && lastMsg.seen === false
-    );
+    if (item.isGroup) {
+      // For group chats, check if message is not seen and not sent by current user
+      setIsUnread(lastMsg.senderId !== userId && lastMsg.seen === false);
+    } else {
+      // For 1-on-1 chats, check if message is from other user and not seen
+      setIsUnread(lastMsg.senderId === item.uid && lastMsg.seen === false);
+    }
   }, [currentUser, item, lastMsg]);
 
   // Format the timestamp for display
@@ -188,7 +191,7 @@ export default function ChatItem({
           />
         )}
 
-        {/* Unread message indicator dot */}
+        {/* Unread message indicator dot for both group and 1on1 */}
         {isUnread && (
           <View
             className="absolute top-0 right-0 bg-blue-500 rounded-full"

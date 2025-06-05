@@ -8,6 +8,7 @@ import {
   ScrollView,
   Modal,
   BackHandler,
+  ActivityIndicator,
 } from "react-native";
 import { usersRef } from "../../firebaseConfig";
 import { query, where, getDocs } from "firebase/firestore";
@@ -28,6 +29,7 @@ export default function SearchUsers({
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [selectedGroupUsers, setSelectedGroupUsers] = useState([]);
   const [groupSearch, setGroupSearch] = useState("");
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const { setSelectedChatUser } = useChat();
   const router = useRouter();
 
@@ -87,17 +89,49 @@ export default function SearchUsers({
   };
 
   // Confirm group creation
-  const confirmGroupCreation = () => {
+  const confirmGroupCreation = async () => {
     if (selectedGroupUsers.length < 2) {
       alert("Select at least 2 users for a group chat.");
       return;
     }
+    setIsCreatingGroup(true);
     // Add current user to the group
     const groupMembers = [currentUser.uid, ...selectedGroupUsers];
     // Generate a random group ID
     const groupId = `group_${Date.now()}_${Math.random()
       .toString(36)
       .substr(2, 9)}`;
+    // Create group room in Firestore immediately
+    try {
+      const { setDoc, doc, serverTimestamp, collection, addDoc } = await import(
+        "firebase/firestore"
+      );
+      const { db } = await import("../../firebaseConfig");
+      await setDoc(
+        doc(db, "rooms", groupId),
+        {
+          roomId: groupId,
+          users: groupMembers,
+          isGroup: true,
+          groupName: `Group Chat`,
+          groupAvatar: null,
+          lastMessage: null,
+          createdAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+      // Add system-indicator message for group creation
+      await addDoc(collection(doc(db, "rooms", groupId), "messages"), {
+        text: `${currentUser.username || currentUser.email || currentUser.uid} created the group`,
+        type: "system-indicator",
+        createdAt: serverTimestamp(),
+        system: true,
+      });
+    } catch (e) {
+      alert("Failed to create group chat. Please try again.");
+      setIsCreatingGroup(false);
+      return;
+    }
     // Set selected chat user/group in context (for now, as a group object)
     setSelectedChatUser({
       isGroup: true,
@@ -115,8 +149,12 @@ export default function SearchUsers({
     setShowGroupModal(false);
     setSelectedGroupUsers([]);
     setGroupSearch("");
-    // Navigate to chatRoom
-    router.push("/chatRoom");
+    setIsCreatingGroup(false);
+    // Navigate to chatRoom with groupId and unique key to force remount
+    router.replace({
+      pathname: "/chatRoom",
+      params: { roomId: groupId, key: groupId },
+    });
   };
 
   return (
@@ -311,12 +349,25 @@ export default function SearchUsers({
               <TouchableOpacity
                 onPress={confirmGroupCreation}
                 style={{
-                  backgroundColor: "#6366f1",
+                  backgroundColor:
+                    selectedGroupUsers.length < 2 || isCreatingGroup
+                      ? "#c7d2fe"
+                      : "#6366f1",
                   borderRadius: 8,
                   paddingHorizontal: 18,
                   paddingVertical: 8,
+                  flexDirection: "row",
+                  alignItems: "center",
                 }}
+                disabled={selectedGroupUsers.length < 2 || isCreatingGroup}
               >
+                {isCreatingGroup && (
+                  <ActivityIndicator
+                    size="small"
+                    color="#fff"
+                    style={{ marginRight: 8 }}
+                  />
+                )}
                 <Text
                   style={{
                     color: "#fff",
@@ -324,7 +375,7 @@ export default function SearchUsers({
                     fontSize: 16,
                   }}
                 >
-                  Create Group
+                  {isCreatingGroup ? "Creating..." : "Create Group"}
                 </Text>
               </TouchableOpacity>
             </View>

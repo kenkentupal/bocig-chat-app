@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
+  ScrollView,
 } from "react-native";
 import React, { useEffect, useState, useRef } from "react";
 import { useAuth } from "../../context/authContext";
@@ -134,9 +135,8 @@ export default function home() {
   };
 
   return (
-    <View className="flex-1 items-center justify-center">
-      <ChatList currentUser={user} users={chatUsers} />
-
+    <View style={{ flex: 1 }}>
+      <ChatList currentUser={user} users={chatUsers} style={{ flex: 1 }} />
       {/* Floating + button at lower right */}
       <TouchableOpacity
         onPress={handleOpenUserModal}

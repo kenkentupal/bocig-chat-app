@@ -10,9 +10,10 @@ import {
   Animated,
   Pressable,
   Platform,
+  BackHandler,
 } from "react-native";
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Stack } from "expo-router";
 import { useChat } from "../../context/chatContext";
@@ -55,6 +56,25 @@ export default function ChatRoom() {
   const router = useRouter();
   const { selectedChatUser: item, setSelectedChatUser } = useChat();
   const { user } = useAuth();
+  const { roomId, key } = useLocalSearchParams();
+
+  // Fetch group/user data if roomId changes (for remount/refresh)
+  useEffect(() => {
+    if (!roomId) return;
+    const fetchRoom = async () => {
+      try {
+        const { getDoc, doc } = await import("firebase/firestore");
+        const { db } = await import("../../firebaseConfig");
+        const docSnap = await getDoc(doc(db, "rooms", roomId));
+        if (docSnap.exists()) {
+          setSelectedChatUser({ ...docSnap.data(), uid: roomId });
+        }
+      } catch (e) {
+        // fallback: do nothing
+      }
+    };
+    fetchRoom();
+  }, [roomId, setSelectedChatUser]);
 
   // Guard: if user is not loaded, show nothing or a loader
   if (!user) {
@@ -200,13 +220,9 @@ export default function ChatRoom() {
         fileType.startsWith("image/") ||
         ["jpg", "jpeg", "png", "gif", "bmp", "webp"].includes(fileExtension);
       const fileObj = file;
-      const filePath = `chats/${getRoomId(
-        user.uid,
-        item.uid
-      )}/files/${new Date().getTime()}_${fileName.replace(
-        /[^a-zA-Z0-9.]/g,
-        "_"
-      )}`;
+      // Use correct roomId for group or 1-to-1 chat
+      let roomId = item?.isGroup ? item.uid : getRoomId(user.uid, item.uid);
+      const filePath = `chats/${roomId}/files/${new Date().getTime()}_${fileName.replace(/[^a-zA-Z0-9.]/g, "_")}`;
       let uploadResult;
       try {
         uploadResult = await createUploadTask(fileObj, filePath, (progress) => {
@@ -227,12 +243,11 @@ export default function ChatRoom() {
       }
       // Ensure room exists before sending file message
       await createRoomIfNotExists();
-      let roomId = getRoomId(user?.uid, item?.uid);
       const docRef = doc(db, "rooms", roomId);
       const messageRef = collection(docRef, "messages");
       const messageData = {
         senderId: user?.uid,
-        receiverId: item?.uid,
+        receiverId: item?.isGroup ? null : item?.uid,
         text: "",
         fileUrl: uploadResult.url,
         fileName: fileName,
@@ -243,6 +258,7 @@ export default function ChatRoom() {
         senderName: user?.username,
         createdAt: serverTimestamp(),
         seen: false,
+        ...(item?.isGroup ? { groupId: item.uid, isGroup: true } : {}),
       };
       await addDoc(messageRef, messageData);
     } catch (error) {
@@ -443,6 +459,23 @@ export default function ChatRoom() {
     };
   }, []);
 
+  // Handle Android hardware back button
+  useEffect(() => {
+    const onHardwareBack = () => {
+      if (router.canGoBack && router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace("/home");
+      }
+      return true; // prevent default (minimize)
+    };
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      onHardwareBack
+    );
+    return () => subscription.remove();
+  }, [router]);
+
   // Mobile view - bottom sheet modal only
   const renderAttachmentMenu = () => {
     return (
@@ -536,7 +569,11 @@ export default function ChatRoom() {
         options={{
           header: ({ navigation }) => (
             <>
-              <ChatRoomHeader item={item} navigation={navigation} />
+              <ChatRoomHeader
+                item={item}
+                navigation={navigation}
+                currentUser={user}
+              />
               <View className="h-1 border-b border-neutral-300"></View>
             </>
           ),
@@ -557,6 +594,10 @@ export default function ChatRoom() {
             <MessageList
               messages={[...messages, ...pendingMessages]}
               currentUser={user}
+              autoLoadOlderMessages={true} // Automatically load older messages
+              onLoadOlderMessages={() => {
+                // Optionally, you can add logic here to fetch older messages if needed
+              }}
             />
           </View>
 
