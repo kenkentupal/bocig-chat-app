@@ -12,6 +12,7 @@ const _layout = () => {
           header: () => <HomeHeader />,
         }}
       />
+      <Stack.Screen name="completeprofile" />
     </Stack>
   );
 };
