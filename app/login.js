@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import axios from "axios";
 import { useAuth } from "../context/authContext";
@@ -20,36 +21,35 @@ import {
 import { Octicons } from "@expo/vector-icons";
 import CustomKeyboardView from "../components/CustomKeyboardView";
 
-const API_URL = "http://192.168.51.228:3000";
+const API_URL =
+  "https://us-central1-facialrecognition-4bee2.cloudfunctions.net/api";
 const auth = getAuth(getApp());
 
 const Login = () => {
+  const [inputFocused, setInputFocused] = useState(false);
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const { setUser, setIsAuthenticated } = useAuth();
   const router = useRouter();
 
   const sendCode = async () => {
-    // Always convert 09xxxxxxxxx to +639xxxxxxxxx for backend
     let phoneTrimmed = phone.trim();
-    if (/^09\d{9}$/.test(phoneTrimmed)) {
-      phoneTrimmed = "+63" + phoneTrimmed.slice(1);
-    }
-    if (!/^\+639\d{9}$/.test(phoneTrimmed)) {
+    if (!/^\d{10}$/.test(phoneTrimmed)) {
       Alert.alert(
         "Invalid Phone Number",
-        "Please enter a valid Philippine phone number starting with 09 or +639 and 11 digits in total."
+        "Please enter a valid 10-digit Philippine mobile number."
       );
       return;
     }
-    console.log("Sending phone number to backend:", phoneTrimmed); // Debug log
+    const fullPhone = "+63" + phoneTrimmed;
+    console.log("Sending phone number to backend:", fullPhone); // Debug log
     setLoading(true);
     try {
-      await axios.post(`${API_URL}/send-code`, { phone: phoneTrimmed });
+      await axios.post(`${API_URL}/send-code`, { phone: fullPhone });
       // Navigate to verification screen and pass phone number as param using Expo Router
       router.push({
         pathname: "/verification",
-        params: { phone: phoneTrimmed },
+        params: { phone: fullPhone },
       });
     } catch (e) {
       Alert.alert("Error", e.response?.data?.message || e.message);
@@ -69,7 +69,6 @@ const Login = () => {
         }}
         className="flex-1"
       >
-      
         <View style={{ alignItems: "center" }}>
           <Image
             style={{ height: hp(25), width: wp(50) }}
@@ -106,12 +105,17 @@ const Login = () => {
             >
               <View
                 style={{
-                  width: wp(7),
+                  width: wp(14),
                   alignItems: "center",
                   justifyContent: "center",
+                  flexDirection: "row",
                 }}
               >
-                <Octicons name="device-mobile" size={hp(2.7)} color="gray" />
+                <Text
+                  style={{ fontSize: hp(2), color: "gray", fontWeight: "600" }}
+                >
+                  +63
+                </Text>
               </View>
               <TextInput
                 style={{
@@ -121,20 +125,39 @@ const Login = () => {
                   paddingLeft: wp(3),
                 }}
                 className="font-semibold text-neutral-700"
-                placeholder="Phone number (09xxxxxxxxx or +639xxxxxxxxx)"
+                placeholder="Enter mobile number"
                 placeholderTextColor="gray"
                 autoCapitalize="none"
-                keyboardType="phone-pad"
+                keyboardType="number-pad"
                 value={phone}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
                 onChangeText={(text) => {
-                  // Only allow input that starts with +639 or 09 and numbers after
-                  if (/^(\+639|09)?\d{0,9}$/.test(text)) {
+                  // Only allow up to 10 digits, numbers only
+                  if (/^\d{0,10}$/.test(text)) {
                     setPhone(text);
                   }
                 }}
-                maxLength={13}
+                maxLength={10}
               />
             </View>
+            {(inputFocused || phone.length > 0) && (
+              <Text
+                style={{
+                  color: "gray",
+                  fontSize: hp(1.5),
+                  marginTop: hp(1),
+                  textAlign: "left",
+                }}
+              >
+                We will use your information to personalize and improve your
+                experience and send service updates. We may use your data as
+                described in our Privacy Policy and Supplemental Privacy Policy
+                for Philippines. By clicking the button below, you agree to our
+                Subscriber Agreement, Privacy Policy and Supplemental Privacy
+                Policy for Philippines. This site is protected by reCAPTCHA.
+              </Text>
+            )}
           </View>
           {/* Remove code input and confirm button, handled in Verification screen */}
           <View style={{ marginTop: hp(2) }}>
@@ -156,16 +179,26 @@ const Login = () => {
               disabled={loading || !phone}
             >
               {loading ? (
-                <Text
+                <View
                   style={{
-                    fontSize: hp(2.2),
-                    color: "#fff",
-                    textAlign: "center",
-                    fontWeight: "700",
+                    flexDirection: "row",
+                    justifyContent: "center",
+                    alignItems: "center",
                   }}
                 >
-                  Loading...
-                </Text>
+                  <Text
+                    style={{
+                      fontSize: hp(2.2),
+                      color: "#fff",
+                      textAlign: "center",
+                      fontWeight: "700",
+                      marginRight: 8,
+                    }}
+                  >
+                    Loading
+                  </Text>
+                  <ActivityIndicator size="small" color="#fff" />
+                </View>
               ) : (
                 <Text
                   style={{
@@ -179,7 +212,50 @@ const Login = () => {
                 </Text>
               )}
             </TouchableOpacity>
+            {/* Having Trouble Link */}
+            <TouchableOpacity
+              style={{
+                alignSelf: "center",
+                marginTop: hp(3), // Increased spacing
+              }}
+              onPress={() => {
+                const email = "support@example.com";
+                const subject = encodeURIComponent("Login Help Needed");
+                const body = encodeURIComponent(
+                  "Hi, I am having trouble logging in."
+                );
+                const mailtoUrl = `mailto:${email}?subject=${subject}&body=${body}`;
+                import("react-native").then((RN) => {
+                  RN.Linking.openURL(mailtoUrl);
+                });
+              }}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={{
+                  fontSize: 13,
+                  color: "#888",
+                  fontStyle: "italic",
+                  textDecorationLine: "underline",
+                  textAlign: "center",
+                  fontWeight: "400",
+                }}
+              >
+                Having Trouble?
+              </Text>
+            </TouchableOpacity>
           </View>
+        </View>
+        {/* App version at the bottom */}
+        <View
+          style={{
+            position: "absolute",
+            bottom: hp(2),
+            width: "100%",
+            alignItems: "center",
+          }}
+        >
+          <Text style={{ color: "gray", fontSize: hp(1.7) }}>v1.0.0</Text>
         </View>
       </View>
     </CustomKeyboardView>

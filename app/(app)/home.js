@@ -36,6 +36,7 @@ export default function home() {
   const [users, setUsers] = useState([]);
   const [chatUsers, setChatUsers] = useState([]); // users with chatrooms
   const [showUserModal, setShowUserModal] = useState(false);
+  const [loading, setLoading] = useState(true); // Add loading state
   // Add cache ref for chatUsers
   const chatUsersCache = useRef({ userId: null, data: [] });
 
@@ -61,6 +62,7 @@ export default function home() {
         fetchChatUsers();
       }
     }
+    setLoading(false); // Set loading to false after user is loaded
   }, [user]);
 
   // Fetch both 1-to-1 and group chats
@@ -136,48 +138,58 @@ export default function home() {
 
   return (
     <View style={{ flex: 1 }}>
-      <ChatList currentUser={user} users={chatUsers} style={{ flex: 1 }} />
-      {/* Floating + button at lower right */}
-      <TouchableOpacity
-        onPress={handleOpenUserModal}
-        style={{
-          position: "absolute",
-          right: wp(4),
-          bottom: hp(4),
-          backgroundColor: "#6366f1",
-          borderRadius: 100,
-          width: hp(7),
-          height: hp(7),
-          alignItems: "center",
-          justifyContent: "center",
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.2,
-          shadowRadius: 4,
-          elevation: 5,
-        }}
-        activeOpacity={0.8}
-      >
-        <AntDesign name="plus" size={hp(3.5)} color="#fff" />
-      </TouchableOpacity>
-      {/* User search modal */}
-      <Modal
-        visible={showUserModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowUserModal(false)}
-      >
-        <View className="flex-1 bg-black/40 justify-center items-center">
-          <View className="bg-transparent w-full h-full justify-end">
-            <SearchUsers
-              currentUser={user}
-              onUserSelect={handleStartChat}
-              onBack={handleSearchBack}
-              onNewGroup={handleNewGroup}
-            />
-          </View>
+      {loading ? (
+        <View
+          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+        >
+          <ActivityIndicator size="large" color="#6366f1" />
         </View>
-      </Modal>
+      ) : (
+        <>
+          <ChatList currentUser={user} users={chatUsers} style={{ flex: 1 }} />
+          {/* Floating + button at lower right */}
+          <TouchableOpacity
+            onPress={handleOpenUserModal}
+            style={{
+              position: "absolute",
+              right: wp(4),
+              bottom: hp(4),
+              backgroundColor: "#6366f1",
+              borderRadius: 100,
+              width: hp(7),
+              height: hp(7),
+              alignItems: "center",
+              justifyContent: "center",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.2,
+              shadowRadius: 4,
+              elevation: 5,
+            }}
+            activeOpacity={0.8}
+          >
+            <AntDesign name="plus" size={hp(3.5)} color="#fff" />
+          </TouchableOpacity>
+          {/* User search modal */}
+          <Modal
+            visible={showUserModal}
+            animationType="slide"
+            transparent
+            onRequestClose={() => setShowUserModal(false)}
+          >
+            <View className="flex-1 bg-black/40 justify-center items-center">
+              <View className="bg-transparent w-full h-full justify-end">
+                <SearchUsers
+                  currentUser={user}
+                  onUserSelect={handleStartChat}
+                  onBack={handleSearchBack}
+                  onNewGroup={handleNewGroup}
+                />
+              </View>
+            </View>
+          </Modal>
+        </>
+      )}
     </View>
   );
 }
