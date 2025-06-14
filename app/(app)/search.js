@@ -409,10 +409,26 @@ export default function SearchUsers({
                 <TouchableOpacity
                   key={u.uid}
                   onPress={() => {
-                    setSelectedChatUser(u);
+                    setSelectedChatUser({
+                      isGroup: false,
+                      users: [currentUser.uid, u.uid],
+                      usernames: [
+                        currentUser.username ||
+                          currentUser.email ||
+                          currentUser.uid,
+                        u.username,
+                      ],
+                      groupName: null,
+                      groupAvatar: null,
+                      uid: u.uid, // for 1-on-1, use the other user's uid
+                      user: u, // keep the full user object if needed
+                    });
                     setShowSearch(false);
                     setSearch("");
-                    router.push("/chatRoom");
+                    router.replace({
+                      pathname: "/chatRoom",
+                      params: { roomId: u.uid, key: u.uid },
+                    });
                   }}
                   style={{
                     flexDirection: "row",

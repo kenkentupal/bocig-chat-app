@@ -112,7 +112,9 @@ export default function MessageList({ messages, currentUser }) {
             <View className="h-8 w-8 mr-2 mt-1">
               <Image
                 source={{
-                  uri: message.profileUrl || "https://placekitten.com/200/200",
+                  uri:
+                    message.profileUrl ||
+                    "https://cdn2.iconfinder.com/data/icons/instagram-ui/48/jee-74-512.png",
                 }}
                 className="w-8 h-8 rounded-full bg-gray-300"
               />
