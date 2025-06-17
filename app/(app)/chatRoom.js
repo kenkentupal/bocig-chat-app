@@ -15,7 +15,6 @@ import {
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Stack } from "expo-router";
 import { useChat } from "../../context/chatContext";
 import { useAuth } from "../../context/authContext";
 import ChatRoomHeader from "../../components/ChatRoomHeader";
@@ -57,6 +56,9 @@ export default function ChatRoom() {
   const { selectedChatUser: item, setSelectedChatUser } = useChat();
   const { user } = useAuth();
   const { roomId, key } = useLocalSearchParams();
+
+  // Modal visibility state
+  const [modalVisible, setModalVisible] = useState(true);
 
   // Fetch group/user data if roomId changes (for remount/refresh)
   useEffect(() => {
@@ -563,29 +565,35 @@ export default function ChatRoom() {
     toggleAttachmentMenu();
   };
 
-  return (
-    <>
-      <Stack.Screen
-        options={{
-          header: ({ navigation }) => (
-            <>
-              <ChatRoomHeader
-                item={item}
-                navigation={navigation}
-                currentUser={user}
-              />
-              <View className="h-1 border-b border-neutral-300"></View>
-            </>
-          ),
-          headerShadowVisible: false,
-        }}
-      />
-      <View className="flex-1 bg-white">
-        <StatusBar style="dark" />
+  // Handle modal close (back button)
+  const handleCloseModal = () => {
+    if (router.canGoBack && router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/home");
+    }
+  };
 
+  if (!modalVisible) return null;
+
+  return (
+    <Modal
+      visible={modalVisible}
+      animationType="slide"
+      onRequestClose={handleCloseModal}
+      presentationStyle="fullScreen"
+    >
+      <View className="flex-1 bg-white">
+        <ChatRoomHeader
+          item={item}
+          navigation={null}
+          currentUser={user}
+          onPress={handleCloseModal}
+          inModal={true}
+        />
+        <View className="h-1 border-b border-neutral-300"></View>
         {/* Use platform-specific attachment menu */}
         {renderAttachmentMenu()}
-
         {/* Main chat interface */}
         <View className="flex-1 justify-between bg-neutral-00 overflow-visible">
           {/* Message list */}
@@ -594,13 +602,10 @@ export default function ChatRoom() {
             <MessageList
               messages={[...messages, ...pendingMessages]}
               currentUser={user}
-              autoLoadOlderMessages={true} // Automatically load older messages
-              onLoadOlderMessages={() => {
-                // Optionally, you can add logic here to fetch older messages if needed
-              }}
+              autoLoadOlderMessages={true}
+              onLoadOlderMessages={() => {}}
             />
           </View>
-
           {/* Upload progress indicator */}
           {isUploading && (
             <View className="bg-blue-50 px-4 py-2 flex-row items-center justify-between">
@@ -621,7 +626,6 @@ export default function ChatRoom() {
               </TouchableOpacity>
             </View>
           )}
-
           {/* Message input area */}
           <View className="pt-2 pb-2 bg-white border-t border-gray-200">
             <View className="flex-row items-center mx-2 my-1">
@@ -634,7 +638,6 @@ export default function ChatRoom() {
                   <Ionicons name="attach" size={hp(2.4)} color="#0084ff" />
                 </TouchableOpacity>
               </View>
-
               {/* Text input + send button */}
               <View
                 className="flex-row flex-1 bg-gray-100 px-3 rounded-full ml-1"
@@ -669,6 +672,6 @@ export default function ChatRoom() {
           </View>
         </View>
       </View>
-    </>
+    </Modal>
   );
 }

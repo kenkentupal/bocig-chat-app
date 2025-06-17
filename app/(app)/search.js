@@ -421,6 +421,8 @@ export default function SearchUsers({
                       groupName: null,
                       groupAvatar: null,
                       uid: u.uid, // for 1-on-1, use the other user's uid
+                      username: u.username, // <-- add this
+                      profileUrl: u.profileUrl, // <-- add this
                       user: u, // keep the full user object if needed
                     });
                     setShowSearch(false);

@@ -22,7 +22,13 @@ import { db, usersRef } from "../firebaseConfig";
 import { getDocs, query, where, doc, updateDoc } from "firebase/firestore";
 import { serverTimestamp, collection, addDoc } from "firebase/firestore";
 
-export default function ChatRoomHeader({ item, navigation, currentUser }) {
+export default function ChatRoomHeader({
+  item,
+  navigation,
+  currentUser,
+  onPress,
+  inModal,
+}) {
   const router = useRouter();
   const [showMembersModal, setShowMembersModal] = React.useState(false);
   const [memberDetails, setMemberDetails] = React.useState([]);
@@ -91,15 +97,18 @@ export default function ChatRoomHeader({ item, navigation, currentUser }) {
 
   // Handle back button press with fallbacks for different scenarios
   const handleBackPress = () => {
+    if (onPress) {
+      onPress();
+      return;
+    }
     // First try the navigation prop if available
     if (navigation && navigation.canGoBack()) {
       navigation.goBack();
       return;
     }
-
     // If navigation doesn't work or we're on web after refresh,
     // use the router to go to home screen
-    router.replace("/home");
+    // router.replace("/home");
   };
 
   // Remove user from group
@@ -812,7 +821,11 @@ export default function ChatRoomHeader({ item, navigation, currentUser }) {
     <SafeAreaView
       style={{
         backgroundColor: "#fff",
-        paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+        paddingTop: inModal
+          ? 0
+          : Platform.OS === "android"
+            ? StatusBar.currentHeight
+            : 0,
       }}
     >
       <View className="bg-white pt-3 pb-3">

@@ -2,16 +2,6 @@ import { View, Text, TouchableOpacity, Image } from "react-native";
 import React, { useEffect, useState } from "react";
 import { heightPercentageToDP as hp } from "react-native-responsive-screen";
 import { useChat } from "../context/chatContext";
-import { db } from "../firebaseConfig";
-import { getRoomId } from "../utils/common";
-import {
-  doc,
-  onSnapshot,
-  collection,
-  query,
-  orderBy,
-} from "firebase/firestore";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 export default function ChatItem({
   item,
@@ -23,6 +13,7 @@ export default function ChatItem({
 }) {
   // State
   const [isUnread, setIsUnread] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false); // Prevent double navigation
   const { setSelectedChatUser } = useChat();
 
   // Get current user safely - handle array or direct object cases
@@ -69,8 +60,12 @@ export default function ChatItem({
 
   // Navigate to chat room when pressed
   const handlePress = () => {
+    if (isNavigating) return;
+    setIsNavigating(true);
     setSelectedChatUser(item);
     router.push("/chatRoom");
+    // Optionally, you can reset isNavigating after a delay or on focus
+    setTimeout(() => setIsNavigating(false), 1000);
   };
 
   const renderMessagePreview = () => {
@@ -151,6 +146,7 @@ export default function ChatItem({
 
   return (
     <TouchableOpacity
+      disabled={isNavigating}
       className={`flex-row justify-between mx-4 items-center gap-3 mb-4 pb-2 ${
         noBorder ? "" : "border-b border-neutral-300"
       }`}
