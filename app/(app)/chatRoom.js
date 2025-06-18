@@ -63,19 +63,25 @@ export default function ChatRoom() {
   // Fetch group/user data if roomId changes (for remount/refresh)
   useEffect(() => {
     if (!roomId) return;
+    let unsubscribe;
     const fetchRoom = async () => {
       try {
-        const { getDoc, doc } = await import("firebase/firestore");
+        const { doc, onSnapshot } = await import("firebase/firestore");
         const { db } = await import("../../firebaseConfig");
-        const docSnap = await getDoc(doc(db, "rooms", roomId));
-        if (docSnap.exists()) {
-          setSelectedChatUser({ ...docSnap.data(), uid: roomId });
-        }
+        const docRef = doc(db, "rooms", roomId);
+        unsubscribe = onSnapshot(docRef, (docSnap) => {
+          if (docSnap.exists()) {
+            setSelectedChatUser({ ...docSnap.data(), uid: roomId });
+          }
+        });
       } catch (e) {
         // fallback: do nothing
       }
     };
     fetchRoom();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [roomId, setSelectedChatUser]);
 
   // Guard: if user is not loaded, show nothing or a loader
@@ -106,6 +112,7 @@ export default function ChatRoom() {
   // Refs
   const textRef = useRef("");
   const inputRef = useRef(null);
+  const messageListRef = useRef(null); // Add ref for MessageList
 
   // Add new state variables
   const [isUploading, setIsUploading] = useState(false);
@@ -356,7 +363,9 @@ export default function ChatRoom() {
 
   // Send a new message
   const handleSendMessage = async () => {
+    setInputValue(""); // Clear input immediately for instant UI
     let message = textRef.current.trim();
+    textRef.current = "";
     if (!message) return;
 
     // Optimistically add message to pendingMessages
@@ -374,8 +383,13 @@ export default function ChatRoom() {
       ...(item?.isGroup ? { groupId: item.uid, isGroup: true } : {}),
     };
     setPendingMessages((prev) => [...prev, pendingMsg]);
-    setInputValue("");
-    textRef.current = "";
+
+    // Scroll to bottom after sending
+    if (messageListRef.current && messageListRef.current.scrollToEnd) {
+      setTimeout(() => {
+        messageListRef.current.scrollToEnd({ animated: true });
+      }, 100);
+    }
 
     // Check internet connection before sending
     const netState = await NetInfo.fetch();
@@ -574,6 +588,15 @@ export default function ChatRoom() {
     }
   };
 
+  // Scroll to bottom when messages or pendingMessages change
+  useEffect(() => {
+    if (messageListRef.current && messageListRef.current.scrollToEnd) {
+      setTimeout(() => {
+        messageListRef.current.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [messages, pendingMessages]);
+
   if (!modalVisible) return null;
 
   return (
@@ -600,6 +623,7 @@ export default function ChatRoom() {
           <View className="flex-1">
             {/* Message list (including system-indicator) */}
             <MessageList
+              ref={messageListRef}
               messages={[...messages, ...pendingMessages]}
               currentUser={user}
               autoLoadOlderMessages={true}

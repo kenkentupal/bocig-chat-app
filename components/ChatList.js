@@ -17,6 +17,7 @@ export default function ChatList({ users, currentUser }) {
   const router = useRouter();
   const [latestMessages, setLatestMessages] = useState({});
   const [unreadMessages, setUnreadMessages] = useState({});
+  const [userList, setUserList] = useState(users);
   // Add refs for caching
   const cacheRef = useRef({
     users: [],
@@ -86,6 +87,34 @@ export default function ChatList({ users, currentUser }) {
     };
   }, [users, currentUser]);
 
+  useEffect(() => {
+    setUserList(users);
+    if (!currentUser || users.length === 0) return;
+    // Clean up previous listeners
+    let unsubGroupRooms = [];
+    // Listen for real-time updates to group chats
+    users.forEach((user, idx) => {
+      if (user.isGroup && user.roomId) {
+        const unsub = onSnapshot(doc(db, "rooms", user.roomId), (docSnap) => {
+          if (docSnap.exists()) {
+            setUserList((prev) => {
+              const updated = [...prev];
+              const i = updated.findIndex((u) => u.uid === user.uid);
+              if (i !== -1) {
+                updated[i] = { ...updated[i], ...docSnap.data() };
+              }
+              return updated;
+            });
+          }
+        });
+        unsubGroupRooms.push(unsub);
+      }
+    });
+    return () => {
+      unsubGroupRooms.forEach((unsub) => unsub && unsub());
+    };
+  }, [users, currentUser]);
+
   // Mark messages as read when user opens a chat
   const handleChatOpen = (userId) => {
     setUnreadMessages((prev) => ({
@@ -104,7 +133,7 @@ export default function ChatList({ users, currentUser }) {
   };
 
   // Sort users and group chats by latest message timestamp (desc)
-  const sortedUsers = [...users].sort((a, b) => {
+  const sortedUsers = [...userList].sort((a, b) => {
     const aMsg = latestMessages[a.uid];
     const bMsg = latestMessages[b.uid];
     const aTime =

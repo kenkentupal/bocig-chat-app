@@ -31,7 +31,9 @@ export const ChatProvider = ({ children }) => {
   }, [selectedChatUser]);
 
   return (
-    <ChatContext.Provider value={{ selectedChatUser, setSelectedChatUser }}>
+    <ChatContext.Provider
+      value={{ selectedChatUser, setSelectedChatUser }}
+    >
       {children}
     </ChatContext.Provider>
   );

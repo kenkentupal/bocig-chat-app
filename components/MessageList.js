@@ -1,5 +1,11 @@
 import { FlatList } from "react-native";
-import React, { useRef, useState, useCallback } from "react";
+import React, {
+  useRef,
+  useState,
+  useCallback,
+  useImperativeHandle,
+  forwardRef,
+} from "react";
 import MessageItem from "./MessageItem";
 import FileMessage from "./FileMessage";
 import {
@@ -9,10 +15,25 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
 
-export default function MessageList({ messages, currentUser }) {
-  const scrollViewRef = useRef(null);
+const MessageList = forwardRef(function MessageList(
+  { messages, currentUser },
+  ref
+) {
+  const flatListRef = useRef(null);
   const PAGE_SIZE = 10;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  // Expose scrollToEnd method to parent
+  useImperativeHandle(ref, () => ({
+    scrollToEnd: (options = { animated: true }) => {
+      if (flatListRef.current && flatListRef.current.scrollToOffset) {
+        flatListRef.current.scrollToOffset({
+          offset: 0,
+          animated: options.animated,
+        });
+      }
+    },
+  }));
 
   // Show only the latest visibleCount messages
   const pagedMessages = [...messages].slice(-visibleCount).reverse();
@@ -211,7 +232,7 @@ export default function MessageList({ messages, currentUser }) {
 
   return (
     <FlatList
-      ref={scrollViewRef}
+      ref={flatListRef}
       data={pagedMessages}
       inverted
       keyExtractor={(item, index) =>
@@ -238,10 +259,11 @@ export default function MessageList({ messages, currentUser }) {
       onEndReached={handleLoadMore}
       onEndReachedThreshold={0.1}
       onScrollToIndexFailed={() => {}}
-      // Optionally, you can add getItemLayout for performance if messages are fixed height
     />
   );
-}
+});
+
+export default MessageList;
 
 const styles = StyleSheet.create({
   systemContainer: {

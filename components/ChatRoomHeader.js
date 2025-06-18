@@ -19,8 +19,22 @@ import {
   widthPercentageToDP as wp,
 } from "react-native-responsive-screen";
 import { db, usersRef } from "../firebaseConfig";
-import { getDocs, query, where, doc, updateDoc } from "firebase/firestore";
+import {
+  getDocs,
+  query,
+  where,
+  doc,
+  updateDoc,
+  onSnapshot,
+} from "firebase/firestore";
 import { serverTimestamp, collection, addDoc } from "firebase/firestore";
+import {
+  getStorage,
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject,
+} from "firebase/storage";
 
 export default function ChatRoomHeader({
   item,
@@ -52,18 +66,36 @@ export default function ChatRoomHeader({
   // Add state for selecting users to add
   const [selectedAddUsers, setSelectedAddUsers] = useState([]);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
+  // Add loading state for image upload
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  // Add state for real-time group data
+  const [groupData, setGroupData] = useState(item);
+
+  // Listen for real-time updates to group (room) document
+  useEffect(() => {
+    if (item?.isGroup && item?.roomId) {
+      const unsub = onSnapshot(doc(db, "rooms", item.roomId), (docSnap) => {
+        if (docSnap.exists()) {
+          setGroupData({ ...docSnap.data(), roomId: item.roomId });
+        }
+      });
+      return () => unsub();
+    } else {
+      setGroupData(item);
+    }
+  }, [item?.roomId, item?.isGroup]);
 
   // Fetch group member details when modal opens
   React.useEffect(() => {
     const fetchMembers = async () => {
       if (
         showMembersModal &&
-        Array.isArray(item?.users) &&
-        item.users.length > 0
+        Array.isArray(groupData?.users) &&
+        groupData.users.length > 0
       ) {
         setLoadingMembers(true);
         try {
-          const q = query(usersRef, where("uid", "in", item.users));
+          const q = query(usersRef, where("uid", "in", groupData.users));
           const snap = await getDocs(q);
           const members = snap.docs.map((doc) => doc.data());
           setMemberDetails(members);
@@ -74,7 +106,7 @@ export default function ChatRoomHeader({
       }
     };
     fetchMembers();
-  }, [showMembersModal, item]);
+  }, [showMembersModal, groupData]);
 
   // Fetch all users for add member modal
   useEffect(() => {
@@ -94,6 +126,12 @@ export default function ChatRoomHeader({
     };
     fetchAllUsers();
   }, [showAddMemberModal]);
+
+  // Sync local edit state with item prop changes (for real-time updates)
+  useEffect(() => {
+    setEditGroupName(item?.groupName || "");
+    setEditGroupAvatar(item?.groupAvatar || null);
+  }, [item?.groupName, item?.groupAvatar]);
 
   // Handle back button press with fallbacks for different scenarios
   const handleBackPress = () => {
@@ -145,26 +183,24 @@ export default function ChatRoomHeader({
 
   // Handler for adding new members
   const handleAddMember = async (selectedUserIds) => {
-    if (!item?.roomId) return;
+    if (!groupData?.roomId) return;
     setIsAdding(true);
     try {
       // Merge current users with new selected users, avoiding duplicates
       const updatedUsers = Array.from(
-        new Set([...(item.users || []), ...selectedUserIds])
+        new Set([...(groupData.users || []), ...selectedUserIds])
       );
-      await updateDoc(doc(db, "rooms", item.roomId), { users: updatedUsers });
+      await updateDoc(doc(db, "rooms", groupData.roomId), { users: updatedUsers });
       // Add system-indicator message for each added user
       for (const uid of selectedUserIds) {
         const addedUser = allUsers.find((u) => u.uid === uid);
-        await addDoc(collection(doc(db, "rooms", item.roomId), "messages"), {
+        await addDoc(collection(doc(db, "rooms", groupData.roomId), "messages"), {
           text: `${addedUser?.username || addedUser?.email || addedUser?.uid} was added to the group`,
           type: "system-indicator",
           createdAt: serverTimestamp(),
           system: true,
         });
       }
-      // Update item.users locally to trigger useEffect
-      if (item.users) item.users = updatedUsers;
       setShowAddMemberModal(false);
       // Refresh memberDetails if members modal is open
       if (showMembersModal) {
@@ -173,7 +209,6 @@ export default function ChatRoomHeader({
         const members = snap.docs.map((doc) => doc.data());
         setMemberDetails(members);
       }
-      // Force re-render by updating state
       setAllUsers((prev) => [...prev]);
     } catch (e) {
       setShowAddMemberModal(false);
@@ -204,27 +239,68 @@ export default function ChatRoomHeader({
     }
   };
 
+  // Helper to upload image to Firebase Storage and get URL
+  async function uploadImageToStorage(uri, groupId) {
+    try {
+      setIsUploadingImage(true);
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const storage = getStorage();
+      const fileName = `groupAvatars/${groupId}_${Date.now()}`;
+      const ref = storageRef(storage, fileName);
+      await uploadBytes(ref, blob);
+      const url = await getDownloadURL(ref);
+      setIsUploadingImage(false);
+      return url;
+    } catch (e) {
+      setIsUploadingImage(false);
+      Alert.alert("Upload failed", e.message || "Could not upload image");
+      throw e;
+    }
+  }
+
   // Save group changes
   const handleSaveGroupEdit = async () => {
-    if (!item?.roomId) return;
+    if (!groupData?.roomId) return;
     setIsUpdatingGroup(true);
+    let oldAvatarUrl = groupData.groupAvatar;
     try {
       let avatarUrl = editGroupAvatar;
       let changes = [];
-      if (editGroupName !== item.groupName) changes.push("name");
-      if (editGroupAvatar !== item.groupAvatar) changes.push("picture");
-      // If avatar is a new local uri, upload to storage (pseudo, replace with your upload logic)
+      if (editGroupName !== groupData.groupName) changes.push("name");
+      if (editGroupAvatar !== groupData.groupAvatar) changes.push("picture");
+      // If avatar is a new local uri, upload to storage
       if (editGroupAvatar && editGroupAvatar.startsWith("file://")) {
-        // TODO: Replace with your upload logic
-        // For now, just keep the local uri
-        // avatarUrl = await uploadImageToStorage(editGroupAvatar);
+        avatarUrl = await uploadImageToStorage(editGroupAvatar, groupData.roomId);
+        if (!avatarUrl.startsWith("http")) {
+          Alert.alert("Upload failed", "Image URL is invalid: " + avatarUrl);
+          setIsUpdatingGroup(false);
+          return;
+        }
       }
-      await updateDoc(doc(db, "rooms", item.roomId), {
+      await updateDoc(doc(db, "rooms", groupData.roomId), {
         groupName: editGroupName,
         groupAvatar: avatarUrl,
       });
-      item.groupName = editGroupName;
-      item.groupAvatar = avatarUrl;
+      // Delete old avatar from storage if changed and is a Firebase Storage URL
+      if (
+        oldAvatarUrl &&
+        oldAvatarUrl !== avatarUrl &&
+        oldAvatarUrl.includes("firebasestorage.googleapis.com")
+      ) {
+        try {
+          const storage = getStorage();
+          // Extract the path from the URL
+          const matches = oldAvatarUrl.match(/\/o\/(.+)\?/);
+          if (matches && matches[1]) {
+            const filePath = decodeURIComponent(matches[1]);
+            const oldRef = storageRef(storage, filePath);
+            await deleteObject(oldRef);
+          }
+        } catch (e) {
+          // Ignore errors for deleting old image
+        }
+      }
       // Add system-indicator message
       if (changes.length > 0) {
         let changeText = "";
@@ -241,7 +317,7 @@ export default function ChatRoomHeader({
           currentUser?.username ||
           currentUser?.email ||
           "Someone";
-        await addDoc(collection(doc(db, "rooms", item.roomId), "messages"), {
+        await addDoc(collection(doc(db, "rooms", groupData.roomId), "messages"), {
           text: `${changer} ${changeText}`,
           type: "system-indicator",
           createdAt: serverTimestamp(),
@@ -840,10 +916,10 @@ export default function ChatRoomHeader({
           </TouchableOpacity>
 
           {/* Avatar */}
-          {item?.isGroup ? (
-            item?.groupAvatar ? (
+          {groupData?.isGroup ? (
+            groupData?.groupAvatar && groupData.groupAvatar.startsWith("http") ? (
               <Image
-                source={{ uri: item.groupAvatar }}
+                source={{ uri: groupData.groupAvatar }}
                 style={{ height: hp(5), width: hp(5) }}
                 className="rounded-full bg-neutral-200"
               />
@@ -865,14 +941,14 @@ export default function ChatRoomHeader({
                     fontSize: 20,
                   }}
                 >
-                  {item.groupName?.[0] || "G"}
+                  {groupData.groupName?.[0] || "G"}
                 </Text>
               </View>
             )
           ) : (
-            item?.profileUrl && (
+            groupData?.profileUrl && (
               <Image
-                source={{ uri: item.profileUrl }}
+                source={{ uri: groupData.profileUrl }}
                 style={{ height: hp(5), width: hp(5) }}
                 className="rounded-full bg-neutral-200"
               />
@@ -882,12 +958,12 @@ export default function ChatRoomHeader({
           {/* User info */}
           <View className="ml-3 flex-1">
             <Text className="text-neutral-800 font-bold text-lg">
-              {item?.isGroup ? item.groupName : item?.username || "Chat"}
+              {groupData?.isGroup ? groupData.groupName : groupData?.username || "Chat"}
             </Text>
           </View>
 
           {/* 3-dot menu for group chats */}
-          {item?.isGroup && (
+          {groupData?.isGroup && (
             <TouchableOpacity
               onPress={() => setShowActionMenu(true)}
               style={{ padding: 8, marginLeft: 8 }}
@@ -994,8 +1070,19 @@ export default function ChatRoomHeader({
                 <TouchableOpacity
                   onPress={pickImage}
                   style={{ alignSelf: "center", marginBottom: 16 }}
+                  disabled={isUploadingImage}
                 >
-                  {editGroupAvatar ? (
+                  {isUploadingImage ? (
+                    <Text
+                      style={{
+                        color: "#6366f1",
+                        fontWeight: "bold",
+                        fontSize: 16,
+                      }}
+                    >
+                      Uploading...
+                    </Text>
+                  ) : editGroupAvatar ? (
                     <Image
                       source={{ uri: editGroupAvatar }}
                       style={{
@@ -1058,7 +1145,7 @@ export default function ChatRoomHeader({
             </View>
           </Modal>
         )}
-        {item?.isGroup && renderMembersModal()}
+        {groupData?.isGroup && renderMembersModal()}
         {showAddMemberModal && renderAddMemberModal()}
       </View>
     </SafeAreaView>
