@@ -23,7 +23,6 @@ export const createUploadTask = async (file, path, onProgress) => {
 
       // Handle file upload
       const uploadTask = uploadBytesResumable(storageRef, file);
-
       // Set up progress monitoring
       return new Promise((resolve, reject) => {
         uploadTask.on(
@@ -59,7 +58,6 @@ export const createUploadTask = async (file, path, onProgress) => {
 
       // Create and start the upload task
       const uploadTask = uploadBytesResumable(storageRef, fileObj);
-
       return new Promise((resolve, reject) => {
         uploadTask.on(
           "state_changed",
@@ -84,13 +82,4 @@ export const createUploadTask = async (file, path, onProgress) => {
     console.error("Error in createUploadTask:", error);
     throw error;
   }
-};
-
-export const cancelActiveUpload = () => {
-  if (activeUploadTask) {
-    activeUploadTask.cancel();
-    activeUploadTask = null;
-    return { canceled: true };
-  }
-  return { canceled: false };
 };

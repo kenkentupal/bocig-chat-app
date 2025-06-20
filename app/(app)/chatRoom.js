@@ -33,7 +33,7 @@ import { db } from "../../firebaseConfig";
 import { getRoomId } from "../../utils/common";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
-import { createUploadTask, cancelActiveUpload } from "../../utils/storageUtils";
+import { createUploadTask } from "../../utils/storageUtils";
 import {
   setDoc,
   doc,
@@ -206,6 +206,29 @@ export default function ChatRoom() {
       return;
     }
 
+    // File size limit: 50MB (50 * 1024 * 1024 bytes)
+    const MAX_FILE_SIZE = 50 * 1024 * 1024;
+    const fileSize = file.fileSize || file.size || 0;
+    console.log("File size debug:", {
+      fileSize,
+      fileFileSize: file.fileSize,
+      fileSizeProp: file.size,
+    });
+    if (!file.fileSize && !file.size) {
+      Alert.alert(
+        "File size unknown",
+        "Could not determine the file size. Upload is not allowed."
+      );
+      return;
+    }
+    if (fileSize > MAX_FILE_SIZE) {
+      Alert.alert(
+        "File too large",
+        "The selected file exceeds the 50MB upload limit. Please choose a smaller file."
+      );
+      return;
+    }
+
     console.log("File object received:", JSON.stringify(file, null, 2));
 
     try {
@@ -238,6 +261,11 @@ export default function ChatRoom() {
           setUploadProgress(progress);
         });
       } catch (uploadError) {
+        // If user canceled the upload, do not show an error popup
+        if (uploadError && uploadError.code === "storage/canceled") {
+          setIsUploading(false);
+          return;
+        }
         console.error("Upload error:", uploadError);
         Alert.alert(
           "Upload failed",
@@ -387,7 +415,9 @@ export default function ChatRoom() {
     // Scroll to bottom after sending
     if (messageListRef.current && messageListRef.current.scrollToEnd) {
       setTimeout(() => {
-        messageListRef.current.scrollToEnd({ animated: true });
+        if (messageListRef.current && messageListRef.current.scrollToEnd) {
+          messageListRef.current.scrollToEnd({ animated: true });
+        }
       }, 100);
     }
 
@@ -592,7 +622,9 @@ export default function ChatRoom() {
   useEffect(() => {
     if (messageListRef.current && messageListRef.current.scrollToEnd) {
       setTimeout(() => {
-        messageListRef.current.scrollToEnd({ animated: true });
+        if (messageListRef.current && messageListRef.current.scrollToEnd) {
+          messageListRef.current.scrollToEnd({ animated: true });
+        }
       }, 100);
     }
   }, [messages, pendingMessages]);
@@ -639,15 +671,6 @@ export default function ChatRoom() {
                   Uploading file... {uploadProgress.toFixed(0)}%
                 </Text>
               </View>
-              <TouchableOpacity
-                onPress={() => {
-                  cancelActiveUpload();
-                  setIsUploading(false);
-                }}
-                className="bg-red-100 rounded-full p-1"
-              >
-                <AntDesign name="close" size={hp(2)} color="red" />
-              </TouchableOpacity>
             </View>
           )}
           {/* Message input area */}

@@ -62,7 +62,7 @@ export default function HomeHeader() {
       >
         <View>
           <Text style={{ fontSize: hp(3) }} className="text-white font-medium">
-            Chats
+            Messages
           </Text>
         </View>
 

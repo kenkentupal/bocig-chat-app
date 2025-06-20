@@ -18,7 +18,6 @@ import {
   heightPercentageToDP as hp,
   widthPercentageToDP as wp,
 } from "react-native-responsive-screen";
-import { Octicons } from "@expo/vector-icons";
 import CustomKeyboardView from "../components/CustomKeyboardView";
 
 const API_URL =

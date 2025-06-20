@@ -19,6 +19,7 @@ import * as VideoThumbnails from "expo-video-thumbnails";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
+// Helper functions
 const formatFileSize = (bytes) => {
   if (bytes === 0) return "0 Bytes";
   const k = 1024;
@@ -46,17 +47,101 @@ const getFileIcon = (fileType) => {
   return "file-o";
 };
 
+const isImageFile = (file) => {
+  // Log the file object for debugging
+
+  // Direct flags from upload handling
+  if (file.isImage === true || file._isWebImage === true) return true;
+
+  // Web-specific properties
+  if (
+    file._imageExtension &&
+    ["jpg", "jpeg", "png", "gif", "webp"].includes(file._imageExtension)
+  ) {
+    return true;
+  }
+
+  // MIME type check
+  if (
+    file.fileType &&
+    (file.fileType.startsWith("image/") || file.fileType.includes("image"))
+  )
+    return true;
+
+  // File extension check from filename
+  if (file.fileName) {
+    const lowerFileName = file.fileName.toLowerCase();
+    const imageExtensions = ["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg"];
+    for (const ext of imageExtensions) {
+      if (lowerFileName.endsWith(`.${ext}`)) return true;
+    }
+  }
+
+  // URL pattern check
+  if (file.fileUrl) {
+    const lowerUrl = file.fileUrl.toLowerCase();
+    // Check for image-specific URL patterns or extensions
+    if (
+      lowerUrl.includes("/image/") ||
+      lowerUrl.includes("images") ||
+      lowerUrl.endsWith(".jpg") ||
+      lowerUrl.endsWith(".jpeg") ||
+      lowerUrl.endsWith(".png") ||
+      lowerUrl.endsWith(".gif") ||
+      lowerUrl.includes("image-")
+    ) {
+      return true;
+    }
+
+    // Common cloud storage image patterns
+    if (
+      lowerUrl.includes("cloudinary.com") ||
+      lowerUrl.includes("firebasestorage") ||
+      lowerUrl.includes("storage.googleapis.com")
+    ) {
+      // Additional check for image-like URL patterns in cloud storage
+      if (
+        lowerUrl.includes("image") ||
+        /\.(jpg|jpeg|png|gif|webp)/i.test(lowerUrl)
+      ) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+};
+
+// Main component
 const FileMessage = ({
   file,
   isCurrentUser,
   isInGrid = false,
   gridSize = 1,
 }) => {
+  // State management
   const [modalVisible, setModalVisible] = useState(false);
-  const videoRef = useRef(null);
-  const isVideo = file.fileType && file.fileType.startsWith("video/");
+  const [videoReady, setVideoReady] = useState(false); // Track if video is ready
+  const [videoKey, setVideoKey] = useState(0); // Key to force remount
+  const [videoEnded, setVideoEnded] = useState(false); // Track if video ended
   const [thumbnail, setThumbnail] = useState(null);
   const [isGeneratingThumbnail, setIsGeneratingThumbnail] = useState(false);
+  const videoRef = useRef(null);
+  const isVideo = file.fileType && file.fileType.startsWith("video/");
+
+  // Reset videoReady and update key when modal opens
+  useEffect(() => {
+    if (modalVisible) {
+      setVideoReady(false);
+      setVideoKey((prev) => prev + 1);
+      setVideoEnded(false);
+      // Pause and reset video when modal opens
+      if (videoRef.current) {
+        videoRef.current.pauseAsync();
+        videoRef.current.setPositionAsync(0);
+      }
+    }
+  }, [modalVisible]);
 
   // Generate video thumbnail when component mounts
   useEffect(() => {
@@ -71,6 +156,7 @@ const FileMessage = ({
     }
   }, [file.fileUrl]);
 
+  // Handler to generate video thumbnail
   const generateThumbnail = async () => {
     if (!file.fileUrl) return;
 
@@ -88,6 +174,30 @@ const FileMessage = ({
     }
   };
 
+  // Handler to reload and play video from start
+  const handleReloadVideo = async () => {
+    if (videoRef.current) {
+      try {
+        await videoRef.current.setPositionAsync(0);
+        await videoRef.current.playAsync();
+        setVideoEnded(false);
+      } catch (e) {}
+    }
+  };
+
+  // Handler to play video after ready
+  const handleVideoReady = async () => {
+    setVideoReady(true);
+    setTimeout(async () => {
+      if (videoRef.current) {
+        try {
+          await videoRef.current.playAsync();
+        } catch (e) {}
+      }
+    }, 100);
+  };
+
+  // Handler for file press
   const handleFilePress = () => {
     // Use the isImageFile function for consistency rather than direct property check
     if (isImageFile(file) || isVideo) {
@@ -101,7 +211,7 @@ const FileMessage = ({
     }
   };
 
-  // Add function to handle download
+  // Handler for download (web/native)
   const handleDownload = useCallback(() => {
     if (!file.fileUrl) return;
 
@@ -122,81 +232,7 @@ const FileMessage = ({
     }
   }, [file.fileUrl, file.fileName]);
 
-  // Enhanced function to detect if a file is an image
-  const isImageFile = (file) => {
-    // Log the file object for debugging
-
-    // Direct flags from upload handling
-    if (file.isImage === true || file._isWebImage === true) return true;
-
-    // Web-specific properties
-    if (
-      file._imageExtension &&
-      ["jpg", "jpeg", "png", "gif", "webp"].includes(file._imageExtension)
-    ) {
-      return true;
-    }
-
-    // MIME type check
-    if (
-      file.fileType &&
-      (file.fileType.startsWith("image/") || file.fileType.includes("image"))
-    )
-      return true;
-
-    // File extension check from filename
-    if (file.fileName) {
-      const lowerFileName = file.fileName.toLowerCase();
-      const imageExtensions = [
-        "jpg",
-        "jpeg",
-        "png",
-        "gif",
-        "bmp",
-        "webp",
-        "svg",
-      ];
-      for (const ext of imageExtensions) {
-        if (lowerFileName.endsWith(`.${ext}`)) return true;
-      }
-    }
-
-    // URL pattern check
-    if (file.fileUrl) {
-      const lowerUrl = file.fileUrl.toLowerCase();
-      // Check for image-specific URL patterns or extensions
-      if (
-        lowerUrl.includes("/image/") ||
-        lowerUrl.includes("images") ||
-        lowerUrl.endsWith(".jpg") ||
-        lowerUrl.endsWith(".jpeg") ||
-        lowerUrl.endsWith(".png") ||
-        lowerUrl.endsWith(".gif") ||
-        lowerUrl.includes("image-")
-      ) {
-        return true;
-      }
-
-      // Common cloud storage image patterns
-      if (
-        lowerUrl.includes("cloudinary.com") ||
-        lowerUrl.includes("firebasestorage") ||
-        lowerUrl.includes("storage.googleapis.com")
-      ) {
-        // Additional check for image-like URL patterns in cloud storage
-        if (
-          lowerUrl.includes("image") ||
-          /\.(jpg|jpeg|png|gif|webp)/i.test(lowerUrl)
-        ) {
-          return true;
-        }
-      }
-    }
-
-    return false;
-  };
-
-  // Media preview modal - with download button removed for privacy
+  // Media preview modal
   const MediaModal = () => (
     <Modal
       animationType="fade"
@@ -229,49 +265,108 @@ const FileMessage = ({
             </TouchableOpacity>
           </View>
 
-          {/* Content - unchanged */}
+          {/* Content - fullscreen */}
           {isImageFile(file) ? (
-            // Image viewer with improved sizing
             <Image
               source={{ uri: file.fileUrl }}
               style={{
-                width: "100%",
-                height: "100%",
-                maxWidth: SCREEN_WIDTH,
-                maxHeight: SCREEN_HEIGHT * 0.9,
+                width: SCREEN_WIDTH,
+                height: SCREEN_HEIGHT,
               }}
               resizeMode="contain"
             />
           ) : isVideo ? (
-            // Video player with improved handling
-            <Video
-              ref={videoRef}
-              source={{ uri: file.fileUrl }}
-              rate={1.0}
-              volume={1.0}
-              isMuted={false}
-              resizeMode={ResizeMode.CONTAIN}
-              shouldPlay={true}
-              isLooping={false}
-              useNativeControls={true}
+            <View
               style={{
-                width: "100%",
-                height: "80%",
-                maxWidth: SCREEN_WIDTH,
-                maxHeight: SCREEN_HEIGHT * 0.9,
+                width: SCREEN_WIDTH,
+                height: SCREEN_HEIGHT,
+                justifyContent: "center",
+                alignItems: "center",
               }}
-            />
+            >
+              <Video
+                key={videoKey}
+                ref={videoRef}
+                source={{ uri: file.fileUrl }}
+                rate={1.0}
+                volume={1.0}
+                isMuted={false}
+                resizeMode={ResizeMode.CONTAIN}
+                shouldPlay={true}
+                isLooping={false}
+                useNativeControls={true}
+                style={{
+                  width: SCREEN_WIDTH,
+                  height: SCREEN_HEIGHT,
+                }}
+                onReadyForDisplay={() => setVideoReady(true)}
+                onPlaybackStatusUpdate={(status) => {
+                  if (status.didJustFinish) setVideoEnded(true);
+                }}
+              />
+              {!videoReady && (
+                <View
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    width: SCREEN_WIDTH,
+                    height: SCREEN_HEIGHT,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    backgroundColor: "rgba(0,0,0,0.9)",
+                  }}
+                >
+                  <ActivityIndicator size="large" color="#fff" />
+                  <Text style={{ color: "#fff", marginTop: 10, fontSize: 16 }}>
+                    Loading video...
+                  </Text>
+                </View>
+              )}
+              {videoEnded && videoReady && (
+                <TouchableOpacity
+                  onPress={handleReloadVideo}
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    width: SCREEN_WIDTH,
+                    height: SCREEN_HEIGHT,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    backgroundColor: "rgba(0,0,0,0.25)",
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <AntDesign name="reload1" size={64} color="#fff" />
+                  <Text style={{ color: "#fff", marginTop: 10, fontSize: 18 }}>
+                    Replay
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           ) : null}
 
-          {/* File name at bottom - only show for videos and other files, not for images */}
-          {!isImageFile(file) && (
-            <View className="absolute bottom-10 bg-black/70 py-3 px-5 rounded-lg">
-              <Text className="text-white">{file.fileName || "Media"}</Text>
-            </View>
-          )}
+          {/* File name at bottom removed to avoid overlap with playback buttons */}
         </SafeAreaView>
       </View>
     </Modal>
+  );
+
+  // Helper component for video fallback display
+  const VideoFallback = ({ isCurrentUser, fileName }) => (
+    <>
+      <View className="bg-blue-500/10 rounded-full p-3 mb-2">
+        <FontAwesome name="play-circle" size={hp(4)} color="#0084ff" />
+      </View>
+      <Text
+        className="text-blue-600 font-medium text-center px-2"
+        numberOfLines={1}
+        style={{ fontSize: hp(1.8) }}
+      >
+        {fileName || "Play Video"}
+      </Text>
+    </>
   );
 
   // For image files - using improved detection
@@ -320,6 +415,18 @@ const FileMessage = ({
 
   // For video files
   if (isVideo) {
+    // Calculate video dimensions based on grid (same as image)
+    let videoWidth = hp(25);
+    let videoHeight = hp(25);
+    if (isInGrid) {
+      if (gridSize === 2) {
+        videoWidth = hp(20);
+        videoHeight = hp(20);
+      } else if (gridSize >= 3) {
+        videoWidth = hp(12.5);
+        videoHeight = hp(12.5);
+      }
+    }
     return (
       <>
         <TouchableOpacity
@@ -330,7 +437,7 @@ const FileMessage = ({
             className={`flex justify-center items-center rounded-lg ${
               isCurrentUser ? "bg-blue-50" : "bg-gray-100"
             }`}
-            style={{ width: hp(25), height: hp(15) }}
+            style={{ width: videoWidth, height: videoHeight }}
           >
             {Platform.OS !== "web" ? (
               // Native platform rendering with thumbnail
@@ -341,8 +448,8 @@ const FileMessage = ({
                   <Image
                     source={{ uri: thumbnail }}
                     style={{
-                      width: hp(25),
-                      height: hp(15),
+                      width: videoWidth,
+                      height: videoHeight,
                       position: "absolute",
                       borderRadius: 8,
                     }}
@@ -452,21 +559,5 @@ const FileMessage = ({
     </TouchableOpacity>
   );
 };
-
-// Helper component for video fallback display
-const VideoFallback = ({ isCurrentUser, fileName }) => (
-  <>
-    <View className="bg-blue-500/10 rounded-full p-3 mb-2">
-      <FontAwesome name="play-circle" size={hp(4)} color="#0084ff" />
-    </View>
-    <Text
-      className="text-blue-600 font-medium text-center px-2"
-      numberOfLines={1}
-      style={{ fontSize: hp(1.8) }}
-    >
-      {fileName || "Play Video"}
-    </Text>
-  </>
-);
 
 export default FileMessage;

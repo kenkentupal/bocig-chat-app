@@ -35,6 +35,7 @@ import {
   getDownloadURL,
   deleteObject,
 } from "firebase/storage";
+import MembersModals from "./MembersModals";
 
 export default function ChatRoomHeader({
   item,
@@ -190,16 +191,21 @@ export default function ChatRoomHeader({
       const updatedUsers = Array.from(
         new Set([...(groupData.users || []), ...selectedUserIds])
       );
-      await updateDoc(doc(db, "rooms", groupData.roomId), { users: updatedUsers });
+      await updateDoc(doc(db, "rooms", groupData.roomId), {
+        users: updatedUsers,
+      });
       // Add system-indicator message for each added user
       for (const uid of selectedUserIds) {
         const addedUser = allUsers.find((u) => u.uid === uid);
-        await addDoc(collection(doc(db, "rooms", groupData.roomId), "messages"), {
-          text: `${addedUser?.username || addedUser?.email || addedUser?.uid} was added to the group`,
-          type: "system-indicator",
-          createdAt: serverTimestamp(),
-          system: true,
-        });
+        await addDoc(
+          collection(doc(db, "rooms", groupData.roomId), "messages"),
+          {
+            text: `${addedUser?.username || addedUser?.email || addedUser?.uid} was added to the group`,
+            type: "system-indicator",
+            createdAt: serverTimestamp(),
+            system: true,
+          }
+        );
       }
       setShowAddMemberModal(false);
       // Refresh memberDetails if members modal is open
@@ -271,7 +277,10 @@ export default function ChatRoomHeader({
       if (editGroupAvatar !== groupData.groupAvatar) changes.push("picture");
       // If avatar is a new local uri, upload to storage
       if (editGroupAvatar && editGroupAvatar.startsWith("file://")) {
-        avatarUrl = await uploadImageToStorage(editGroupAvatar, groupData.roomId);
+        avatarUrl = await uploadImageToStorage(
+          editGroupAvatar,
+          groupData.roomId
+        );
         if (!avatarUrl.startsWith("http")) {
           Alert.alert("Upload failed", "Image URL is invalid: " + avatarUrl);
           setIsUpdatingGroup(false);
@@ -317,12 +326,15 @@ export default function ChatRoomHeader({
           currentUser?.username ||
           currentUser?.email ||
           "Someone";
-        await addDoc(collection(doc(db, "rooms", groupData.roomId), "messages"), {
-          text: `${changer} ${changeText}`,
-          type: "system-indicator",
-          createdAt: serverTimestamp(),
-          system: true,
-        });
+        await addDoc(
+          collection(doc(db, "rooms", groupData.roomId), "messages"),
+          {
+            text: `${changer} ${changeText}`,
+            type: "system-indicator",
+            createdAt: serverTimestamp(),
+            system: true,
+          }
+        );
       }
       setShowEditGroupModal(false);
     } catch (e) {
@@ -331,567 +343,6 @@ export default function ChatRoomHeader({
       setIsUpdatingGroup(false);
     }
   };
-
-  // Render group members modal
-  const renderMembersModal = () => {
-    const memberCount = memberDetails.length;
-    // Calculate modal height: base + per member, with a max
-    const baseHeight = 180; // header, padding, buttons
-    const perMember = 52; // height per member row
-    const maxModalHeight = 420; // max modal height for mobile
-    const modalHeight = Math.min(
-      baseHeight + memberCount * perMember,
-      maxModalHeight
-    );
-
-    return (
-      <Modal
-        visible={showMembersModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowMembersModal(false)}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0,0,0,0.18)",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: "#fff",
-              borderRadius: 22,
-              padding: 28,
-              minWidth: 290,
-              maxWidth: 370,
-              shadowColor: "#000",
-              shadowOpacity: 0.18,
-              shadowRadius: 16,
-              elevation: 8,
-              position: "relative",
-              borderWidth: 1,
-              borderColor: "#e5e7eb",
-              height: modalHeight,
-            }}
-          >
-            {/* Header with title and + button */}
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 16,
-              }}
-            >
-              <Text
-                style={{
-                  fontWeight: "bold",
-                  fontSize: 20,
-                  color: "#222",
-                  textAlign: "center",
-                  flex: 1,
-                }}
-              >
-                Group Members
-              </Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setShowMembersModal(false);
-                  setShowAddMemberModal(true);
-                }}
-                style={{ marginLeft: 12, padding: 4 }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="add-circle" size={28} color="#6366f1" />
-              </TouchableOpacity>
-            </View>
-            <View
-              style={{
-                height: 1,
-                backgroundColor: "#e5e7eb",
-                marginBottom: 10,
-              }}
-            />
-            {/* Members list with dynamic height */}
-            {loadingMembers ? (
-              <View style={{ alignItems: "center", marginVertical: 20 }}>
-                <Text style={{ color: "#6366f1", fontSize: 16 }}>
-                  Loading...
-                </Text>
-              </View>
-            ) : memberDetails.length > 0 ? (
-              <ScrollView
-                style={{ maxHeight: 220 }}
-                contentContainerStyle={{ paddingBottom: 10 }}
-                showsVerticalScrollIndicator={memberDetails.length > 5}
-              >
-                {memberDetails.map((user) => (
-                  <View
-                    key={user.uid}
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      marginBottom: 10,
-                      paddingVertical: 6,
-                      borderBottomWidth: 0.5,
-                      borderColor: "#f1f5f9",
-                      backgroundColor:
-                        user.uid === currentUser?.uid ? "#f1f5f9" : "#fff",
-                      borderRadius: 8,
-                      paddingHorizontal: 4,
-                    }}
-                  >
-                    <Image
-                      source={{ uri: user.profileUrl }}
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 18,
-                        marginRight: 12,
-                        backgroundColor: "#e0e7ff",
-                      }}
-                    />
-                    <Text
-                      style={{
-                        fontSize: 16,
-                        flex: 1,
-                        color: "#222",
-                        fontWeight:
-                          user.uid === currentUser?.uid ? "bold" : "normal",
-                      }}
-                    >
-                      {user.username || user.email || user.uid}
-                    </Text>
-                    {/* Dot button for kick/remove, show 'Leave Group' for self */}
-                    {user.uid === currentUser?.uid ? (
-                      <TouchableOpacity
-                        onPress={() => setShowLeaveModal(true)}
-                        style={{
-                          padding: 6,
-                          borderRadius: 6,
-                          backgroundColor: "#fef2f2",
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={{ color: "#e11d48", fontWeight: "bold" }}>
-                          Leave Group
-                        </Text>
-                      </TouchableOpacity>
-                    ) : user.uid !== item.currentUserId ? (
-                      <TouchableOpacity
-                        onPress={() => {
-                          setSelectedMember(user);
-                          setShowKickModal(true);
-                        }}
-                        style={{
-                          padding: 6,
-                          borderRadius: 6,
-                          backgroundColor: "#fef2f2",
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons
-                          name="remove-circle"
-                          size={22}
-                          color="#e11d48"
-                        />
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                ))}
-              </ScrollView>
-            ) : (
-              <Text
-                style={{ color: "#888", fontSize: 15, textAlign: "center" }}
-              >
-                No members found.
-              </Text>
-            )}
-            {/* Kick/Remove modal */}
-            <Modal
-              visible={showKickModal}
-              transparent
-              animationType="fade"
-              onRequestClose={() => setShowKickModal(false)}
-            >
-              <View
-                style={{
-                  flex: 1,
-                  backgroundColor: "rgba(0,0,0,0.2)",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
-                <View
-                  style={{
-                    backgroundColor: "#fff",
-                    borderRadius: 14,
-                    padding: 28,
-                    minWidth: 240,
-                    shadowColor: "#000",
-                    shadowOpacity: 0.18,
-                    shadowRadius: 16,
-                    elevation: 8,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontWeight: "bold",
-                      fontSize: 17,
-                      marginBottom: 14,
-                      color: "#e11d48",
-                      textAlign: "center",
-                    }}
-                  >
-                    Remove user from group?
-                  </Text>
-                  <Text
-                    style={{
-                      marginBottom: 20,
-                      textAlign: "center",
-                      color: "#222",
-                    }}
-                  >
-                    {selectedMember?.username ||
-                      selectedMember?.email ||
-                      selectedMember?.uid}
-                  </Text>
-                  <View
-                    style={{ flexDirection: "row", justifyContent: "flex-end" }}
-                  >
-                    <TouchableOpacity
-                      onPress={() => setShowKickModal(false)}
-                      style={{ marginRight: 18 }}
-                    >
-                      <Text style={{ color: "#888", fontWeight: "bold" }}>
-                        Cancel
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => handleRemoveUser(selectedMember.uid)}
-                      disabled={isRemoving}
-                      style={{
-                        backgroundColor: "#fee2e2",
-                        borderRadius: 6,
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
-                      }}
-                    >
-                      {isRemoving ? (
-                        <Text style={{ color: "#e11d48", fontWeight: "bold" }}>
-                          Removing...
-                        </Text>
-                      ) : (
-                        <Text style={{ color: "#e11d48", fontWeight: "bold" }}>
-                          Remove
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            </Modal>
-            {/* Leave Group modal for self */}
-            <Modal
-              visible={showLeaveModal}
-              transparent
-              animationType="fade"
-              onRequestClose={() => setShowLeaveModal(false)}
-            >
-              <View
-                style={{
-                  flex: 1,
-                  backgroundColor: "rgba(0,0,0,0.2)",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
-                <View
-                  style={{
-                    backgroundColor: "#fff",
-                    borderRadius: 14,
-                    padding: 28,
-                    minWidth: 240,
-                    shadowColor: "#000",
-                    shadowOpacity: 0.18,
-                    shadowRadius: 16,
-                    elevation: 8,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontWeight: "bold",
-                      fontSize: 17,
-                      marginBottom: 14,
-                      color: "#e11d48",
-                      textAlign: "center",
-                    }}
-                  >
-                    Leave group?
-                  </Text>
-                  <Text
-                    style={{
-                      marginBottom: 20,
-                      textAlign: "center",
-                      color: "#222",
-                    }}
-                  >
-                    Are you sure you want to leave this group?
-                  </Text>
-                  <View
-                    style={{ flexDirection: "row", justifyContent: "flex-end" }}
-                  >
-                    <TouchableOpacity
-                      onPress={() => setShowLeaveModal(false)}
-                      style={{ marginRight: 18 }}
-                    >
-                      <Text style={{ color: "#888", fontWeight: "bold" }}>
-                        Cancel
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={async () => {
-                        setShowLeaveModal(false);
-                        try {
-                          const updatedUsers = item.users.filter(
-                            (u) => u !== currentUser.uid
-                          );
-                          await updateDoc(doc(db, "rooms", item.roomId), {
-                            users: updatedUsers,
-                          });
-                          await addDoc(
-                            collection(
-                              doc(db, "rooms", item.roomId),
-                              "messages"
-                            ),
-                            {
-                              text: `${currentUser?.username || currentUser?.email || currentUser?.uid} left the group`,
-                              type: "system-indicator",
-                              createdAt: serverTimestamp(),
-                              system: true,
-                            }
-                          );
-                          if (navigation && navigation.canGoBack()) {
-                            navigation.goBack();
-                          } else {
-                            router.replace("/home");
-                          }
-                        } catch (e) {
-                          Alert.alert("Error", "Failed to leave group.");
-                        }
-                      }}
-                      style={{
-                        backgroundColor: "#fee2e2",
-                        borderRadius: 6,
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
-                      }}
-                    >
-                      <Text style={{ color: "#e11d48", fontWeight: "bold" }}>
-                        Leave Group
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            </Modal>
-            <TouchableOpacity
-              onPress={() => setShowMembersModal(false)}
-              style={{
-                marginTop: 22,
-                alignSelf: "flex-end",
-                paddingHorizontal: 12,
-                paddingVertical: 6,
-                backgroundColor: "#6366f1",
-                borderRadius: 8,
-              }}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={{
-                  color: "#fff",
-                  fontWeight: "bold",
-                  fontSize: 16,
-                }}
-              >
-                Close
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    );
-  };
-
-  // Add Member Modal UI
-  const renderAddMemberModal = () => (
-    <Modal
-      visible={showAddMemberModal}
-      transparent
-      animationType="slide"
-      onRequestClose={() => setShowAddMemberModal(false)}
-    >
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: "#0008",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <View
-          style={{
-            backgroundColor: "#fff",
-            borderRadius: 16,
-            width: "90%",
-            maxHeight: 400,
-            padding: 20,
-          }}
-        >
-          <Text
-            style={{
-              fontWeight: "bold",
-              fontSize: 18,
-              marginBottom: 12,
-            }}
-          >
-            Add members to group
-          </Text>
-          <TextInput
-            placeholder="Search users..."
-            value={searchUser}
-            onChangeText={setSearchUser}
-            style={{
-              borderWidth: 1,
-              borderColor: "#e5e7eb",
-              borderRadius: 8,
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              marginBottom: 10,
-              fontSize: 15,
-            }}
-            placeholderTextColor="#94a3b8"
-          />
-          {isAdding && (
-            <View style={{ alignItems: "center", marginBottom: 10 }}>
-              <Text style={{ color: "#6366f1", fontSize: 15 }}>
-                Adding members...
-              </Text>
-            </View>
-          )}
-          <ScrollView style={{ maxHeight: 250 }}>
-            {allUsers
-              .filter(
-                (u) =>
-                  !item.users.includes(u.uid) &&
-                  (u.username
-                    ?.toLowerCase()
-                    .includes(searchUser.toLowerCase()) ||
-                    u.email?.toLowerCase().includes(searchUser.toLowerCase()))
-              )
-              .map((u) => (
-                <TouchableOpacity
-                  key={u.uid}
-                  onPress={() => {
-                    setSelectedAddUsers((prev) =>
-                      prev.includes(u.uid)
-                        ? prev.filter((id) => id !== u.uid)
-                        : [...prev, u.uid]
-                    );
-                  }}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    paddingVertical: 8,
-                  }}
-                  disabled={isAdding}
-                >
-                  <View
-                    style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: 12,
-                      borderWidth: 2,
-                      borderColor: selectedAddUsers.includes(u.uid)
-                        ? "#6366f1"
-                        : "#e5e7eb",
-                      backgroundColor: selectedAddUsers.includes(u.uid)
-                        ? "#6366f1"
-                        : "#fff",
-                      marginRight: 12,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    {selectedAddUsers.includes(u.uid) && (
-                      <Ionicons name="checkmark" size={16} color="#fff" />
-                    )}
-                  </View>
-                  <Image
-                    source={{ uri: u.profileUrl }}
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 18,
-                      marginRight: 10,
-                      backgroundColor: "#e5e7eb",
-                    }}
-                  />
-                  <Text style={{ fontSize: 16 }}>{u.username || u.email}</Text>
-                </TouchableOpacity>
-              ))}
-          </ScrollView>
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "flex-end",
-              marginTop: 18,
-            }}
-          >
-            <TouchableOpacity
-              onPress={() => {
-                setShowAddMemberModal(false);
-                setSelectedAddUsers([]);
-                setSearchUser("");
-              }}
-              style={{ marginRight: 18 }}
-              disabled={isAdding}
-            >
-              <Text style={{ color: "#64748b", fontSize: 16 }}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={async () => {
-                if (selectedAddUsers.length === 0 || isAdding) return;
-                await handleAddMember(selectedAddUsers);
-                setSelectedAddUsers([]);
-                setSearchUser("");
-              }}
-              style={{
-                backgroundColor:
-                  selectedAddUsers.length && !isAdding ? "#6366f1" : "#c7d2fe",
-                borderRadius: 8,
-                paddingHorizontal: 18,
-                paddingVertical: 8,
-              }}
-              disabled={selectedAddUsers.length === 0 || isAdding}
-            >
-              <Text
-                style={{
-                  color: "#fff",
-                  fontWeight: "bold",
-                  fontSize: 16,
-                }}
-              >
-                {isAdding ? "Adding..." : "Add"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
 
   return (
     <SafeAreaView
@@ -917,7 +368,8 @@ export default function ChatRoomHeader({
 
           {/* Avatar */}
           {groupData?.isGroup ? (
-            groupData?.groupAvatar && groupData.groupAvatar.startsWith("http") ? (
+            groupData?.groupAvatar &&
+            groupData.groupAvatar.startsWith("http") ? (
               <Image
                 source={{ uri: groupData.groupAvatar }}
                 style={{ height: hp(5), width: hp(5) }}
@@ -958,7 +410,9 @@ export default function ChatRoomHeader({
           {/* User info */}
           <View className="ml-3 flex-1">
             <Text className="text-neutral-800 font-bold text-lg">
-              {groupData?.isGroup ? groupData.groupName : groupData?.username || "Chat"}
+              {groupData?.isGroup
+                ? groupData.groupName
+                : groupData?.username || "Chat"}
             </Text>
           </View>
 
@@ -1145,7 +599,48 @@ export default function ChatRoomHeader({
             </View>
           </Modal>
         )}
-        {groupData?.isGroup && renderMembersModal()}
+        {/* Members modals grouped in MembersModals component */}
+        {groupData?.isGroup && (
+          <MembersModals
+            showMembersModal={showMembersModal}
+            setShowMembersModal={setShowMembersModal}
+            memberDetails={memberDetails}
+            loadingMembers={loadingMembers}
+            currentUser={currentUser}
+            item={{
+              ...item,
+              updateRoomUsers: async (updatedUsers) => {
+                await updateDoc(doc(db, "rooms", item.roomId), {
+                  users: updatedUsers,
+                });
+              },
+              addSystemMessage: async (text) => {
+                await addDoc(
+                  collection(doc(db, "rooms", item.roomId), "messages"),
+                  {
+                    text,
+                    type: "system-indicator",
+                    createdAt: serverTimestamp(),
+                    system: true,
+                  }
+                );
+              },
+            }}
+            setShowAddMemberModal={setShowAddMemberModal}
+            showKickModal={showKickModal}
+            setShowKickModal={setShowKickModal}
+            selectedMember={selectedMember}
+            setSelectedMember={setSelectedMember}
+            handleRemoveUser={handleRemoveUser}
+            isRemoving={isRemoving}
+            showLeaveModal={showLeaveModal}
+            setShowLeaveModal={setShowLeaveModal}
+            navigation={navigation}
+            router={router}
+            setMemberDetails={setMemberDetails}
+            setAllUsers={setAllUsers}
+          />
+        )}
         {showAddMemberModal && renderAddMemberModal()}
       </View>
     </SafeAreaView>
