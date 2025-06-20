@@ -32,8 +32,7 @@ import { getRoomId } from "../../utils/common";
 import SearchUsers from "./search";
 
 export default function home() {
-  const { logout, user } = useAuth();
-  const [users, setUsers] = useState([]);
+  const { user } = useAuth();
   const [chatUsers, setChatUsers] = useState([]); // users with chatrooms
   const [showUserModal, setShowUserModal] = useState(false);
   // Add cache ref for chatUsers

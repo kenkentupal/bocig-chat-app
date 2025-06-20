@@ -13,8 +13,8 @@ const _layout = () => {
         }}
       />
       <Stack.Screen name="completeprofile" />
-      </Stack>
-    );
+    </Stack>
+  );
 };
 
 export default _layout;

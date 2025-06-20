@@ -1,5 +1,14 @@
-import { View, Text, Platform, StatusBar, Image, Alert } from "react-native";
-import React from "react";
+import {
+  View,
+  Text,
+  Platform,
+  StatusBar,
+  Image,
+  Alert,
+  Modal,
+  TouchableOpacity,
+} from "react-native";
+import React, { useEffect } from "react";
 import {
   heightPercentageToDP as hp,
   widthPercentageToDP as wp,
@@ -7,52 +16,22 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { blurhash } from "../utils/common";
 import { useAuth } from "../context/authContext";
-import {
-  Menu,
-  MenuOption,
-  MenuOptions,
-  MenuTrigger,
-} from "react-native-popup-menu";
-import { MenuItem } from "./CustomMenuItems";
 import { AntDesign, Feather } from "@expo/vector-icons";
+import Profile from "../app/(app)/profile";
 
 const ios = Platform.OS == "ios";
 
 export default function HomeHeader() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUserData } = useAuth();
   const { top } = useSafeAreaInsets();
+  const [showProfile, setShowProfile] = React.useState(false);
 
-  const handleProfile = () => {
-    // Handle profile action here
-  };
-  const handleLogout = async () => {
-    if (Platform.OS === "web") {
-      // Web implementation
-      if (window.confirm("Are you sure you want to logout?")) {
-        await logout();
-      }
-    } else {
-      // Native implementation (iOS/Android)
-      Alert.alert(
-        "Confirm Action",
-        "Are you sure you want to logout?",
-        [
-          {
-            text: "Cancel",
-            style: "cancel",
-          },
-          {
-            text: "OK",
-            onPress: async () => {
-              await logout();
-              console.log("OK Pressed");
-            },
-          },
-        ],
-        { cancelable: false }
-      );
+  useEffect(() => {
+    if (showProfile && user?.uid && typeof updateUserData === "function") {
+      updateUserData(user.uid);
     }
-  };
+  }, [showProfile, user?.uid, updateUserData]);
+
   return (
     <>
       <StatusBar backgroundColor="#818cf8" barStyle="light-content" />
@@ -67,50 +46,39 @@ export default function HomeHeader() {
         </View>
 
         <View>
-          <Menu>
-            <MenuTrigger>
-              <Image
-                source={{ uri: user?.profileUrl }}
-                style={{
-                  height: hp(4.5),
-                  width: hp(4.5),
-                  borderRadius: 100,
-                }}
-              />
-            </MenuTrigger>
-            <MenuOptions
-              customStyles={{
-                optionsContainer: {
-                  borderRadius: 10,
-                  borderCurve: "continuous",
-                  marginTop: 40,
-                  marginLeft: -30,
-                  backgroundColor: "white",
-                  shadowOpacity: 0.2,
-                  shadowOffset: { width: 0, height: 2 },
-                  width: wp(40),
-                },
+          <TouchableOpacity onPress={() => setShowProfile(true)}>
+            <Image
+              source={{ uri: user?.profileUrl }}
+              style={{
+                height: hp(4.5),
+                width: hp(4.5),
+                borderRadius: 100,
               }}
-            >
-              <MenuItem
-                text="Profile"
-                action={handleProfile}
-                value={null}
-                icon={<Feather name="user" size={hp(2.7)} color="#737373" />}
-              />
-              <Divider />
-              <MenuItem
-                text="Sign Out"
-                action={handleLogout}
-                value={null}
-                icon={
-                  <AntDesign name="logout" size={hp(2.7)} color="#737373" />
-                }
-              />
-            </MenuOptions>
-          </Menu>
+            />
+          </TouchableOpacity>
         </View>
       </View>
+      <Modal
+        visible={showProfile}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setShowProfile(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: "white" }}>
+          <TouchableOpacity
+            style={{
+              position: "absolute",
+              top: hp(4.5),
+              right: wp(7),
+              zIndex: 10,
+            }}
+            onPress={() => setShowProfile(false)}
+          >
+            <AntDesign name="close" size={30} color="#fff" />
+          </TouchableOpacity>
+          <Profile />
+        </View>
+      </Modal>
     </>
   );
 }
