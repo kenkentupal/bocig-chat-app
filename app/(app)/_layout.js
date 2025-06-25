@@ -12,6 +12,12 @@ const _layout = () => {
           header: () => <HomeHeader />,
         }}
       />
+      <Stack.Screen
+        name="chatRoom"
+        options={{
+          headerShown: false,
+        }}
+      />
       <Stack.Screen name="completeprofile" />
     </Stack>
   );

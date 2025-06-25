@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, Image } from "react-native";
 import React, { useEffect, useState } from "react";
 import { heightPercentageToDP as hp } from "react-native-responsive-screen";
 import { useChat } from "../context/chatContext";
+import { getRoomId } from "../utils/common";
 
 export default function ChatItem({
   item,
@@ -63,8 +64,12 @@ export default function ChatItem({
     if (isNavigating) return;
     setIsNavigating(true);
     setSelectedChatUser(item);
-    router.push("/chatRoom");
-    // Optionally, you can reset isNavigating after a delay or on focus
+    // Use correct roomId for 1-on-1 and group chats
+    const me = getCurrentUserId();
+    let roomId = item.isGroup
+      ? item.uid
+      : (me && item.uid ? getRoomId(me, item.uid) : item.uid);
+    router.push({ pathname: "/chatRoom", params: { roomId } });
     setTimeout(() => setIsNavigating(false), 1000);
   };
 

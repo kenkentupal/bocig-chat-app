@@ -1,15 +1,15 @@
 import React, { createContext, useEffect, useState, useContext } from "react";
 import { getAuth, signInWithCustomToken } from "firebase/auth";
 import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
-import { getApp } from "firebase/app";
+import { app } from "../firebaseConfig";
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(undefined);
-  const db = getFirestore(getApp());
-  const auth = getAuth(getApp());
+  const db = getFirestore(app);
+  const auth = getAuth(app);
 
   useEffect(() => {
     const unsub = auth.onAuthStateChanged(async (user) => {

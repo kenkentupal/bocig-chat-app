@@ -57,21 +57,39 @@ export default function ChatRoom() {
   const { user } = useAuth();
   const { roomId, key } = useLocalSearchParams();
 
-  // Modal visibility state
-  const [modalVisible, setModalVisible] = useState(true);
-
   // Fetch group/user data if roomId changes (for remount/refresh)
   useEffect(() => {
     if (!roomId) return;
     let unsubscribe;
     const fetchRoom = async () => {
       try {
-        const { doc, onSnapshot } = await import("firebase/firestore");
-        const { db } = await import("../../firebaseConfig");
+        const { doc, onSnapshot, getDoc } = await import("firebase/firestore");
+        const { db, usersRef } = await import("../../firebaseConfig");
         const docRef = doc(db, "rooms", roomId);
-        unsubscribe = onSnapshot(docRef, (docSnap) => {
+        unsubscribe = onSnapshot(docRef, async (docSnap) => {
           if (docSnap.exists()) {
-            setSelectedChatUser({ ...docSnap.data(), uid: roomId });
+            const roomData = docSnap.data();
+            // If not a group, fetch the other user's profile
+            if (!roomData.isGroup && Array.isArray(roomData.users)) {
+              // Find the other user's uid
+              const { user } = await import("../../context/authContext");
+              const currentUid = user?.uid || (await import("../../context/authContext")).useAuth().user?.uid;
+              const otherUid = roomData.users.find((uid) => uid !== currentUid);
+              if (otherUid) {
+                // Fetch user profile
+                const userDoc = await getDoc(doc(usersRef, otherUid));
+                let userProfile = userDoc.exists() ? userDoc.data() : {};
+                setSelectedChatUser({
+                  ...userProfile,
+                  uid: otherUid,
+                  roomId,
+                  ...roomData,
+                });
+                return;
+              }
+            }
+            // For group, or if user not found, just set room data
+            setSelectedChatUser({ ...roomData, uid: roomId });
           }
         });
       } catch (e) {
@@ -629,96 +647,97 @@ export default function ChatRoom() {
     }
   }, [messages, pendingMessages]);
 
-  if (!modalVisible) return null;
-
   return (
-    <Modal
-      visible={modalVisible}
-      animationType="slide"
-      onRequestClose={handleCloseModal}
-      presentationStyle="fullScreen"
-    >
-      <View className="flex-1 bg-white">
-        <ChatRoomHeader
-          item={item}
-          navigation={null}
-          currentUser={user}
-          onPress={handleCloseModal}
-          inModal={true}
-        />
-        <View className="h-1 border-b border-neutral-300"></View>
-        {/* Use platform-specific attachment menu */}
-        {renderAttachmentMenu()}
-        {/* Main chat interface */}
-        <View className="flex-1 justify-between bg-neutral-00 overflow-visible">
-          {/* Message list */}
-          <View className="flex-1">
-            {/* Message list (including system-indicator) */}
-            <MessageList
-              ref={messageListRef}
-              messages={[...messages, ...pendingMessages]}
-              currentUser={user}
-              autoLoadOlderMessages={true}
-              onLoadOlderMessages={() => {}}
-            />
-          </View>
-          {/* Upload progress indicator */}
-          {isUploading && (
-            <View className="bg-blue-50 px-4 py-2 flex-row items-center justify-between">
-              <View className="flex-row items-center">
-                <ActivityIndicator size="small" color="#0084ff" />
-                <Text className="ml-2 text-blue-600">
-                  Uploading file... {uploadProgress.toFixed(0)}%
-                </Text>
-              </View>
+    <View style={{ flex: 1, backgroundColor: "#fff" }}>
+      {/* Remove extra space at the top by not using SafeAreaView or paddingTop */}
+      <ChatRoomHeader
+        item={item}
+        navigation={null}
+        currentUser={user}
+        onPress={handleCloseModal}
+        inModal={false}
+      />
+      <View className="h-1 border-b border-neutral-300"></View>
+      {/* Use platform-specific attachment menu */}
+      {renderAttachmentMenu()}
+      {/* Main chat interface */}
+      <View className="flex-1 justify-between bg-neutral-00 overflow-visible">
+        {/* Message list */}
+        <View className="flex-1">
+          {/* Message list (including system-indicator) */}
+          <MessageList
+            ref={messageListRef}
+            messages={[...messages, ...pendingMessages]}
+            currentUser={user}
+            autoLoadOlderMessages={true}
+            onLoadOlderMessages={() => {}}
+          />
+        </View>
+        {/* Upload progress indicator */}
+        {isUploading && (
+          <View className="bg-blue-50 px-4 py-2 flex-row items-center justify-between">
+            <View className="flex-row items-center">
+              <ActivityIndicator size="small" color="#0084ff" />
+              <Text className="ml-2 text-blue-600">
+                Uploading file... {uploadProgress.toFixed(0)}%
+              </Text>
             </View>
-          )}
-          {/* Message input area */}
-          <View className="pt-2 pb-2 bg-white border-t border-gray-200">
-            <View className="flex-row items-center mx-2 my-1">
-              {/* Menu button - updated with proper positioning for web dropdown */}
-              <View className="relative">
-                <TouchableOpacity
-                  onPress={handleMenuPress}
-                  className="p-2 bg-blue-50 rounded-full"
-                >
-                  <Ionicons name="attach" size={hp(2.4)} color="#0084ff" />
-                </TouchableOpacity>
-              </View>
-              {/* Text input + send button */}
-              <View
-                className="flex-row flex-1 bg-gray-100 px-3 rounded-full ml-1"
-                style={{
-                  alignItems: "center",
-                  minHeight: hp(5),
-                }}
+          </View>
+        )}
+        {/* Message input area */}
+        <View className="pt-2 pb-2 bg-white border-t border-gray-200">
+          <View className="flex-row items-center mx-2 my-1">
+            {/* Menu button - updated with proper positioning for web dropdown */}
+            <View className="relative">
+              <TouchableOpacity
+                onPress={handleMenuPress}
+                className="p-2 bg-blue-50 rounded-full"
               >
-                <TextInput
-                  ref={inputRef}
-                  placeholder="Type a message..."
-                  className="flex-1 py-2 text-base text-neutral-800"
-                  multiline
-                  value={inputValue}
-                  onChangeText={(value) => {
-                    textRef.current = value;
-                    setInputValue(value);
-                  }}
-                  style={{
-                    fontSize: hp(2),
-                    minHeight: hp(4.5),
-                    maxHeight: hp(10),
-                    height: inputHeight,
-                    paddingVertical: 8,
-                  }}
-                />
-                <TouchableOpacity onPress={handleSendMessage} className="p-2">
-                  <Ionicons name="send" size={hp(2.4)} color="#0084ff" />
-                </TouchableOpacity>
-              </View>
+                <Ionicons name="attach" size={hp(2.4)} color="#0084ff" />
+              </TouchableOpacity>
+            </View>
+            {/* Text input + send button */}
+            <View
+              className="flex-row flex-1 bg-gray-100 px-3 rounded-full ml-1"
+              style={{
+                alignItems: "center",
+                minHeight: hp(5),
+              }}
+            >
+              <TextInput
+                ref={inputRef}
+                placeholder="Type a message..."
+                className="flex-1 py-2 text-base text-neutral-800"
+                multiline
+                value={inputValue}
+                onChangeText={(value) => {
+                  textRef.current = value;
+                  setInputValue(value);
+                }}
+                style={{
+                  fontSize: hp(2),
+                  minHeight: hp(4.5),
+                  maxHeight: hp(10),
+                  height: inputHeight,
+                  paddingVertical: 8,
+                }}
+              />
+              <TouchableOpacity onPress={handleSendMessage} className="p-2">
+                <Ionicons name="send" size={hp(2.4)} color="#0084ff" />
+              </TouchableOpacity>
             </View>
           </View>
         </View>
       </View>
-    </Modal>
+    </View>
   );
 }
+
+// Hide the default navigation header for this screen
+export const options = {
+  headerShown: false,
+};
+
+export const screenOptions = {
+  headerShown: false,
+};

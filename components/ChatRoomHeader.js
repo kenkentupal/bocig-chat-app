@@ -139,14 +139,13 @@ export default function ChatRoomHeader({
       onPress();
       return;
     }
-    // First try the navigation prop if available
-    if (navigation && navigation.canGoBack()) {
-      navigation.goBack();
+    // Use router.back() for stack navigation
+    if (router.canGoBack && router.canGoBack()) {
+      router.back();
       return;
     }
-    // If navigation doesn't work or we're on web after refresh,
-    // use the router to go to home screen
-    // router.replace("/home");
+    // Fallback to home if cannot go back
+    router.replace("/home");
   };
 
   // Remove user from group
@@ -908,11 +907,7 @@ export default function ChatRoomHeader({
     <SafeAreaView
       style={{
         backgroundColor: "#fff",
-        paddingTop: inModal
-          ? 0
-          : Platform.OS === "android"
-            ? StatusBar.currentHeight
-            : 0,
+        paddingTop: 0, // Ensure no space at the top
       }}
     >
       <View className="bg-white pt-3 pb-3">

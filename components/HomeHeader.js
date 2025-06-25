@@ -18,13 +18,15 @@ import { blurhash } from "../utils/common";
 import { useAuth } from "../context/authContext";
 import { AntDesign, Feather } from "@expo/vector-icons";
 import Profile from "../app/(app)/profile";
+import EditProfile from "../app/(app)/editprofile";
 
 const ios = Platform.OS == "ios";
 
 export default function HomeHeader() {
-  const { user, logout, updateUserData } = useAuth();
+  const { user, updateUserData } = useAuth();
   const { top } = useSafeAreaInsets();
   const [showProfile, setShowProfile] = React.useState(false);
+  const [showEditProfile, setShowEditProfile] = React.useState(false);
 
   useEffect(() => {
     if (showProfile && user?.uid && typeof updateUserData === "function") {
@@ -69,14 +71,29 @@ export default function HomeHeader() {
             style={{
               position: "absolute",
               top: hp(4.5),
-              right: wp(7),
+              left: wp(7),
               zIndex: 10,
             }}
             onPress={() => setShowProfile(false)}
           >
-            <AntDesign name="close" size={30} color="#fff" />
+            <AntDesign name="back" size={30} color="#fff" />
           </TouchableOpacity>
-          <Profile />
+          <Profile
+            onEditProfile={() => {
+              setShowProfile(false);
+              setShowEditProfile(true);
+            }}
+          />
+        </View>
+      </Modal>
+      <Modal
+        visible={showEditProfile}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setShowEditProfile(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: "white" }}>
+          <EditProfile onDone={() => setShowEditProfile(false)} />
         </View>
       </Modal>
     </>

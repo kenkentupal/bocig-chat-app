@@ -38,6 +38,12 @@ export default function home() {
   // Add cache ref for chatUsers
   const chatUsersCache = useRef({ userId: null, data: [] });
 
+  // Loading and error state
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [loadTimeout, setLoadTimeout] = useState(false);
+  const loadingTimeoutRef = useRef(null);
+
   // Add handler for back button in SearchUsers
   const handleSearchBack = () => setShowUserModal(false);
   // Add handler for new group button (placeholder)
@@ -48,64 +54,98 @@ export default function home() {
 
   useEffect(() => {
     if (user?.uid) {
+      setLoadError(false);
+      setLoadTimeout(false);
+      setLoading(true);
+      // Set timeout for loading (e.g., 8 seconds)
+      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+      loadingTimeoutRef.current = setTimeout(() => {
+        setLoadTimeout(true);
+        setLoading(false);
+      }, 8000);
+
       // Use cache if user is the same
       if (
         chatUsersCache.current.userId === user.uid &&
         chatUsersCache.current.data.length > 0
       ) {
         setChatUsers(chatUsersCache.current.data);
-        // Fetch in background to update cache
         fetchChatUsers(true);
+        setLoading(false);
+        if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
       } else {
         fetchChatUsers();
       }
     }
+    return () => {
+      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+    };
   }, [user]);
 
   // Fetch both 1-to-1 and group chats
   const fetchChatUsers = async (background = false) => {
-    const roomsQ = query(
-      collection(db, "rooms"),
-      where("users", "array-contains", user.uid)
-    );
-    const roomsSnap = await getDocs(roomsQ);
-    let chatUserIds = new Set();
-    let groupChats = [];
-    roomsSnap.forEach((docSnap) => {
-      const room = docSnap.data();
-      if (room.isGroup) {
-        groupChats.push({
-          ...room,
-          uid: room.roomId, // for key
-          createdAt:
-            room.createdAt ||
-            docSnap.data().createdAt ||
-            docSnap.createTime ||
-            new Date(),
-        });
-      } else {
-        const usersArr = room.users || [];
-        usersArr.forEach((uid) => {
-          if (uid !== user.uid) chatUserIds.add(uid);
+    try {
+      if (!background) {
+        setLoading(true);
+        setLoadError(false);
+        setLoadTimeout(false);
+        if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = setTimeout(() => {
+          setLoadTimeout(true);
+          setLoading(false);
+        }, 10000);
+      }
+      const roomsQ = query(
+        collection(db, "rooms"),
+        where("users", "array-contains", user.uid)
+      );
+      const roomsSnap = await getDocs(roomsQ);
+      let chatUserIds = new Set();
+      let groupChats = [];
+      roomsSnap.forEach((docSnap) => {
+        const room = docSnap.data();
+        if (room.isGroup) {
+          groupChats.push({
+            ...room,
+            uid: room.roomId, // for key
+            createdAt:
+              room.createdAt ||
+              docSnap.data().createdAt ||
+              docSnap.createTime ||
+              new Date(),
+          });
+        } else {
+          const usersArr = room.users || [];
+          usersArr.forEach((uid) => {
+            if (uid !== user.uid) chatUserIds.add(uid);
+          });
+        }
+      });
+      let data = [];
+      if (chatUserIds.size > 0) {
+        // Fetch user data for these ids
+        const q = query(usersRef, where("uid", "in", Array.from(chatUserIds)));
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((doc) => {
+          data.push(doc.data());
         });
       }
-    });
-    let data = [];
-    if (chatUserIds.size > 0) {
-      // Fetch user data for these ids
-      const q = query(usersRef, where("uid", "in", Array.from(chatUserIds)));
-      const querySnapshot = await getDocs(q);
-      querySnapshot.forEach((doc) => {
-        data.push(doc.data());
-      });
+      // Add group chats to the list
+      const allChats = [...groupChats, ...data];
+      // Update cache
+      chatUsersCache.current = { userId: user.uid, data: allChats };
+      if (!background) setChatUsers(allChats);
+      if (background && JSON.stringify(allChats) !== JSON.stringify(chatUsers))
+        setChatUsers(allChats);
+      setLoading(false);
+      setLoadTimeout(false);
+      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+    } catch (err) {
+      setLoading(false);
+      setLoadError(true);
+      setLoadTimeout(false);
+      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
     }
-    // Add group chats to the list
-    const allChats = [...groupChats, ...data];
-    // Update cache
-    chatUsersCache.current = { userId: user.uid, data: allChats };
-    if (!background) setChatUsers(allChats);
-    if (background && JSON.stringify(allChats) !== JSON.stringify(chatUsers))
-      setChatUsers(allChats);
   };
 
   // Open user search modal
@@ -135,6 +175,7 @@ export default function home() {
 
   return (
     <View style={{ flex: 1 }}>
+      {/* Always show chat list and floating button/modal, loading removed */}
       <ChatList currentUser={user} users={chatUsers} style={{ flex: 1 }} />
       {/* Floating + button at lower right */}
       <TouchableOpacity

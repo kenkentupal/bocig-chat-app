@@ -1,4 +1,4 @@
-import { View, Text, FlatList } from "react-native";
+import { View, Text, FlatList, ActivityIndicator } from "react-native";
 import React, { useEffect, useState, useRef } from "react";
 import ChatItem from "./ChatItem";
 import { useRouter } from "expo-router";
@@ -18,6 +18,7 @@ export default function ChatList({ users, currentUser }) {
   const [latestMessages, setLatestMessages] = useState({});
   const [unreadMessages, setUnreadMessages] = useState({});
   const [userList, setUserList] = useState(users);
+  const [allMessagesLoaded, setAllMessagesLoaded] = useState(false);
   // Add refs for caching
   const cacheRef = useRef({
     users: [],
@@ -39,8 +40,11 @@ export default function ChatList({ users, currentUser }) {
 
     if (!currentUser || users.length === 0) return;
 
+    setAllMessagesLoaded(false);
+
     // Clean up previous listeners
     let unsubscribes = [];
+    let loadedCount = 0;
 
     users.forEach((user) => {
       const me = Array.isArray(currentUser) ? currentUser[0] : currentUser;
@@ -73,10 +77,17 @@ export default function ChatList({ users, currentUser }) {
             return updated;
           });
         }
+        loadedCount += 1;
+        if (loadedCount === users.length) {
+          setAllMessagesLoaded(true);
+        }
       });
 
       unsubscribes.push(unsub);
     });
+
+    // If users is empty, set loaded immediately
+    if (users.length === 0) setAllMessagesLoaded(true);
 
     // Update cache for users and currentUser
     cacheRef.current.users = users;
@@ -145,24 +156,38 @@ export default function ChatList({ users, currentUser }) {
 
   return (
     <View className="flex-1 w-full px-3">
-      <FlatList
-        data={sortedUsers}
-        contentContainerStyle={{ paddingVertical: 25 }}
-        keyExtractor={(item) => item.uid}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item, index }) => (
-          <ChatItem
-            noBorder={index + 1 == sortedUsers.length}
-            item={item}
-            index={index}
-            router={router}
-            currentUser={currentUser}
-            lastMsg={latestMessages[item.uid] || null}
-            hasUnread={unreadMessages[item.uid] || false}
-            onPress={() => handleChatOpen(item.uid)}
-          />
-        )}
-      />
+      {!allMessagesLoaded ? (
+        <View
+          style={{
+            flex: 1,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <ActivityIndicator size="large" color="#6366f1" />
+          <Text style={{ marginTop: 10, color: "#6366f1" }}>
+            Loading chats...
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={sortedUsers}
+          contentContainerStyle={{ paddingVertical: 25 }}
+          keyExtractor={(item) => item.uid}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item, index }) => (
+            <ChatItem
+              noBorder={index + 1 == sortedUsers.length}
+              item={item}
+              index={index}
+              router={router}
+              currentUser={currentUser}
+              lastMsg={latestMessages[item.uid] || null}
+              hasUnread={unreadMessages[item.uid] || false}
+            />
+          )}
+        />
+      )}
     </View>
   );
 }
