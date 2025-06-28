@@ -1,17 +1,17 @@
 console.log("index.js loaded");
 
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 
-admin.initializeApp();
+// Do NOT call admin.initializeApp() here; it's already called in index.js
 
-exports.sendMessageNotification = onDocumentCreated(
-  "rooms/{roomId}/messages/{messageId}",
-  async (snap, context) => {
+exports.sendMessageNotification = functions.firestore
+  .document("rooms/{roomId}/messages/{messageId}")
+  .onCreate(async (snap, context) => {
     console.log("sendMessageNotification function START");
     try {
       // Log entire message document
-      const message = typeof snap.data === "function" ? snap.data() : snap.data;
+      const message = snap.data();
       console.log("New message created:", JSON.stringify(message));
       // Robust receiverId extraction
       let recipientId = message.receiverId;
@@ -98,5 +98,4 @@ exports.sendMessageNotification = onDocumentCreated(
       console.error("Function error:", error);
       return null;
     }
-  }
-);
+  });

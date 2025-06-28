@@ -201,7 +201,7 @@ const EditProfile = ({ onDone }) => {
           onPress={onDone}
           style={{ padding: 8, marginRight: 8 }}
         >
-          <AntDesign name="back" size={30} color="#000" />
+          <AntDesign name="left" size={30} color="#000" />
         </TouchableOpacity>
         <Text
           style={{

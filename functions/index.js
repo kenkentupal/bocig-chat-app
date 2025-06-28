@@ -1,4 +1,4 @@
-const functions = require("firebase-functions");
+const functions = require("firebase-functions/v1");
 const express = require("express");
 const cors = require("cors");
 const twilio = require("twilio");
@@ -80,11 +80,119 @@ app.post("/verify-code", async (req, res) => {
   }
 });
 
+// Export the Express app as a Firebase Function (Gen 2)
+exports.api = functions
+  .region("asia-southeast1")
+  .runWith({
+    cpu: 1, // Remove or adjust as needed
+    memory: "512MB",
+    timeoutSeconds: 60,
+  })
+  .https.onRequest(app);
+
+// Notification Cloud Function (Gen 2)
+exports.sendMessageNotification = functions
+  .region("asia-southeast1")
+  .runWith({
+    cpu: 1, // Remove or adjust as needed
+    memory: "512MB",
+    timeoutSeconds: 60,
+  })
+  .firestore.document("rooms/{roomId}/messages/{messageId}")
+  .onWrite((change, context) => {
+    // Only run on document creation
+    if (!change.before.exists && change.after.exists) {
+      const snap = change.after;
+      console.log("sendMessageNotification function START");
+      const message = snap.data();
+      console.log("New message created:", JSON.stringify(message));
+      let recipientId = message.receiverId;
+      if (
+        !recipientId &&
+        message._fieldsProto &&
+        message._fieldsProto.receiverId
+      ) {
+        recipientId = message._fieldsProto.receiverId.stringValue;
+      }
+      if (!recipientId) {
+        console.log("ERROR: No receiverId found in message");
+        return null;
+      }
+
+      console.log("Recipient ID:", recipientId);
+      const senderName = message.senderName || "Someone";
+
+      // Fetch user document for recipientId
+      return admin
+        .firestore()
+        .collection("users")
+        .doc(recipientId)
+        .get()
+        .then((userDoc) => {
+          console.log("User document fetched:", JSON.stringify(userDoc.data()));
+          if (!userDoc.exists) {
+            console.log(
+              "ERROR: User document does not exist for ID:",
+              recipientId
+            );
+            return null;
+          }
+          const fcmToken = userDoc.data() && userDoc.data().fcmToken;
+          console.log("Fetched fcmToken:", fcmToken);
+          if (!fcmToken) {
+            console.log("ERROR: No FCM token for user:", recipientId);
+            return null;
+          }
+          console.log("Found FCM token:", fcmToken);
+
+          const messagePayload = {
+            token: fcmToken,
+            notification: {
+              title: `New message from ${senderName}`,
+              body: "You have a new message!",
+            },
+          };
+
+          console.log(
+            "Sending notification with payload:",
+            JSON.stringify(messagePayload)
+          );
+
+          return admin
+            .messaging()
+            .send({
+              token: fcmToken,
+              notification: {
+                title: `New message from ${senderName}`,
+                body: "You have a new message!",
+              },
+            })
+            .then((response) => {
+              console.log(
+                "Notification sent successfully:",
+                JSON.stringify(response)
+              );
+              return response;
+            })
+            .catch((error) => {
+              console.error("Error sending notification:", error);
+              if (error && error.errorInfo) {
+                console.error("Error info:", JSON.stringify(error.errorInfo));
+              }
+              return null;
+            });
+        })
+        .catch((error) => {
+          console.error("Function error:", error);
+          return null;
+        });
+    } else {
+      // Not a create event
+      return null;
+    }
+  });
 // Error handler middleware for Express
 app.use((err, req, res, next) => {
   console.error("Express error:", err);
   res.status(500).json({ message: "Internal server error" });
 });
-
-// Export the Express app as a Firebase Function
-exports.api = functions.https.onRequest(app);

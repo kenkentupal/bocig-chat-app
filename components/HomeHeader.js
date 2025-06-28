@@ -76,7 +76,7 @@ export default function HomeHeader() {
             }}
             onPress={() => setShowProfile(false)}
           >
-            <AntDesign name="back" size={30} color="#fff" />
+            <AntDesign name="left" size={30} color="#fff" />
           </TouchableOpacity>
           <Profile
             onEditProfile={() => {

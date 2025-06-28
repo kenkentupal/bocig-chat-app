@@ -130,11 +130,14 @@ const CompleteProfile = () => {
       await updateUserData(userUid); // <-- update context after saving
       Alert.alert("Success", "Profile completed!");
       setLoading(false);
-      navigation.navigate("home");
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "home" }],
+      });
     } catch (e) {
       Alert.alert("Error", e.message);
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

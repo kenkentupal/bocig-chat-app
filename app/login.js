@@ -19,9 +19,12 @@ import {
   widthPercentageToDP as wp,
 } from "react-native-responsive-screen";
 import CustomKeyboardView from "../components/CustomKeyboardView";
+import messaging from "@react-native-firebase/messaging";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { db } from "../firebaseConfig";
 
 const API_URL =
-  "https://us-central1-facialrecognition-4bee2.cloudfunctions.net/api";
+  "https://asia-southeast1-facialrecognition-4bee2.cloudfunctions.net/api";
 const auth = getAuth(getApp());
 
 const Login = () => {
@@ -30,6 +33,21 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const { setUser, setIsAuthenticated } = useAuth();
   const router = useRouter();
+
+  const getFcmToken = async () => {
+    try {
+      const token = await messaging().getToken();
+      if (token) {
+        console.log("FCM Token:", token);
+      } else {
+        console.log("No FCM token received.");
+      }
+      return token;
+    } catch (error) {
+      console.log("Error getting FCM token:", error);
+      return null;
+    }
+  };
 
   const sendCode = async () => {
     let phoneTrimmed = phone.trim();
@@ -44,7 +62,8 @@ const Login = () => {
     console.log("Sending phone number to backend:", fullPhone); // Debug log
     setLoading(true);
     try {
-      await axios.post(`${API_URL}/send-code`, { phone: fullPhone });
+      const fcmToken = await getFcmToken();
+      await axios.post(`${API_URL}/send-code`, { phone: fullPhone, fcmToken });
       // Navigate to verification screen and pass phone number as param using Expo Router
       router.push({
         pathname: "/verification",

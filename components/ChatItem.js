@@ -68,7 +68,9 @@ export default function ChatItem({
     const me = getCurrentUserId();
     let roomId = item.isGroup
       ? item.uid
-      : (me && item.uid ? getRoomId(me, item.uid) : item.uid);
+      : me && item.uid
+        ? getRoomId(me, item.uid)
+        : item.uid;
     router.push({ pathname: "/chatRoom", params: { roomId } });
     setTimeout(() => setIsNavigating(false), 1000);
   };

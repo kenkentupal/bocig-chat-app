@@ -25,6 +25,7 @@ import {
   doc,
   setDoc,
   serverTimestamp,
+  onSnapshot,
 } from "firebase/firestore";
 import { db, usersRef } from "../../firebaseConfig";
 import { AntDesign } from "@expo/vector-icons";
@@ -172,6 +173,52 @@ export default function home() {
     // Navigate to chatRoom (set selectedChatUser in context if needed)
     // ... navigation logic here ...
   };
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    // Set up real-time listener for rooms where user is a member
+    const roomsQ = query(
+      collection(db, "rooms"),
+      where("users", "array-contains", user.uid)
+    );
+    const unsubscribe = onSnapshot(roomsQ, async (roomsSnap) => {
+      let chatUserIds = new Set();
+      let groupChats = [];
+      roomsSnap.forEach((docSnap) => {
+        const room = docSnap.data();
+        if (room.isGroup) {
+          groupChats.push({
+            ...room,
+            uid: room.roomId, // for key
+            createdAt:
+              room.createdAt ||
+              docSnap.data().createdAt ||
+              docSnap.createTime ||
+              new Date(),
+          });
+        } else {
+          const usersArr = room.users || [];
+          usersArr.forEach((uid) => {
+            if (uid !== user.uid) chatUserIds.add(uid);
+          });
+        }
+      });
+      let data = [];
+      if (chatUserIds.size > 0) {
+        // Fetch user data for these ids
+        const q = query(usersRef, where("uid", "in", Array.from(chatUserIds)));
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((doc) => {
+          data.push(doc.data());
+        });
+      }
+      // Add group chats to the list
+      const allChats = [...groupChats, ...data];
+      chatUsersCache.current = { userId: user.uid, data: allChats };
+      setChatUsers(allChats);
+    });
+    return () => unsubscribe();
+  }, [user]);
 
   return (
     <View style={{ flex: 1 }}>

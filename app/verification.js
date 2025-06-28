@@ -19,8 +19,13 @@ import CustomKeyboardView from "../components/CustomKeyboardView";
 import axios from "axios";
 import { useAuth } from "../context/authContext";
 import { useLocalSearchParams } from "expo-router";
+import messaging from "@react-native-firebase/messaging";
+import { getAuth } from "firebase/auth";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { db } from "../firebaseConfig";
+
 const API_URL =
-  "https://us-central1-facialrecognition-4bee2.cloudfunctions.net/api";
+  "https://asia-southeast1-facialrecognition-4bee2.cloudfunctions.net/api";
 const OTP_LENGTH = 6;
 const RESEND_OTP_TIME = 300; // 5 minutes in seconds
 
@@ -64,6 +69,44 @@ const Verification = ({ navigation }) => {
   // Placeholder for SMS auto-retrieval (to be implemented with expo-sms-retriever or similar)
   // useEffect(() => { ... }, []);
 
+  // Helper to save FCM token to Firestore if not present or changed
+  const saveFcmTokenToFirestore = async (uid, token) => {
+    if (!uid || !token) return;
+    try {
+      const userRef = doc(db, "users", uid);
+      const userSnap = await getDoc(userRef);
+      const authUser = getAuth().currentUser;
+      if (!userSnap.exists()) {
+        await setDoc(
+          userRef,
+          {
+            uid,
+            phone: authUser?.phoneNumber || "",
+            email: authUser?.email || "",
+            firstName: authUser?.displayName?.split(" ")[0] || "",
+            lastName: authUser?.displayName?.split(" ")[1] || "",
+            profileUrl: authUser?.photoURL || "",
+            username: authUser?.displayName || "",
+            createdAt: new Date(),
+            fcmToken: token,
+          },
+          { merge: true }
+        );
+        console.log("Created user doc with FCM token and profile info");
+      } else {
+        const data = userSnap.data();
+        if (!data.fcmToken || data.fcmToken !== token) {
+          await updateDoc(userRef, { fcmToken: token });
+          console.log("Created or updated FCM token in Firestore");
+        } else {
+          console.log("FCM token already up to date");
+        }
+      }
+    } catch (error) {
+      console.log("Error saving FCM token to Firestore:", error);
+    }
+  };
+
   const handleSubmit = async (code) => {
     setLoading(true);
     setVerified(false);
@@ -73,6 +116,12 @@ const Verification = ({ navigation }) => {
         setVerified(true); // keep button in verifying state
         const result = await loginWithCustomToken(res.data.token);
         if (!result.success) throw result.error;
+        // Save FCM token after successful login
+        const fcmToken = await messaging().getToken();
+        const user = getAuth().currentUser;
+        if (user && fcmToken) {
+          await saveFcmTokenToFirestore(user.uid, fcmToken);
+        }
         // Optionally navigate to home or let AuthContext handle redirect
         // setLoading(false); // Do not set loading false here, let AuthContext handle
       } else {

@@ -38,7 +38,12 @@ export default function ChatList({ users, currentUser }) {
       setUnreadMessages(cacheRef.current.unreadMessages);
     }
 
-    if (!currentUser || users.length === 0) return;
+    if (!currentUser) return;
+
+    if (users.length === 0) {
+      setAllMessagesLoaded(true);
+      return;
+    }
 
     setAllMessagesLoaded(false);
 
@@ -167,6 +172,21 @@ export default function ChatList({ users, currentUser }) {
           <ActivityIndicator size="large" color="#6366f1" />
           <Text style={{ marginTop: 10, color: "#6366f1" }}>
             Loading chats...
+          </Text>
+        </View>
+      ) : userList.length === 0 ? (
+        <View
+          style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+        >
+          <Text
+            style={{
+              color: "#6366f1",
+              fontSize: 16,
+              textAlign: "center",
+              marginHorizontal: 24,
+            }}
+          >
+            Click '+' to start a new conversation
           </Text>
         </View>
       ) : (

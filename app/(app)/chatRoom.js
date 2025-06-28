@@ -1,35 +1,24 @@
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
   Alert,
   TextInput,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   Modal,
   Animated,
   Pressable,
-  Platform,
   BackHandler,
 } from "react-native";
-import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { useChat } from "../../context/chatContext";
 import { useAuth } from "../../context/authContext";
 import ChatRoomHeader from "../../components/ChatRoomHeader";
 import MessageList from "../../components/MessageList";
-import {
-  heightPercentageToDP as hp,
-  widthPercentageToDP as wp,
-} from "react-native-responsive-screen";
-import {
-  Ionicons,
-  MaterialIcons,
-  FontAwesome,
-  AntDesign,
-} from "@expo/vector-icons";
-import { db } from "../../firebaseConfig";
+import { heightPercentageToDP as hp } from "react-native-responsive-screen";
+import { Ionicons } from "@expo/vector-icons";
+import { db, usersRef } from "../../firebaseConfig";
 import { getRoomId } from "../../utils/common";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
@@ -63,8 +52,6 @@ export default function ChatRoom() {
     let unsubscribe;
     const fetchRoom = async () => {
       try {
-        const { doc, onSnapshot, getDoc } = await import("firebase/firestore");
-        const { db, usersRef } = await import("../../firebaseConfig");
         const docRef = doc(db, "rooms", roomId);
         unsubscribe = onSnapshot(docRef, async (docSnap) => {
           if (docSnap.exists()) {
@@ -72,8 +59,7 @@ export default function ChatRoom() {
             // If not a group, fetch the other user's profile
             if (!roomData.isGroup && Array.isArray(roomData.users)) {
               // Find the other user's uid
-              const { user } = await import("../../context/authContext");
-              const currentUid = user?.uid || (await import("../../context/authContext")).useAuth().user?.uid;
+              const currentUid = user?.uid;
               const otherUid = roomData.users.find((uid) => uid !== currentUid);
               if (otherUid) {
                 // Fetch user profile
