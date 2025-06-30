@@ -21,7 +21,7 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
   }
 }
 
-rootProject.name = 'BOCChatApp'
+rootProject.name = 'Bureau of Customs'
 
 dependencyResolutionManagement {
   versionCatalogs {

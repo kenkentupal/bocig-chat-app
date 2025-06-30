@@ -29,6 +29,7 @@
         <data android:scheme="myapp"/>
         <data android:scheme="com.kentupal.BOCChatApp"/>
         <data android:scheme="exp+bocchatapp"/>
+        <data android:scheme="exp+bureau-of-customs"/>
       </intent-filter>
     </activity>
   </application>
