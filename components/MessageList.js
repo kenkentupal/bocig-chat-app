@@ -14,9 +14,16 @@ import {
 } from "react-native-responsive-screen";
 import { Ionicons } from "@expo/vector-icons";
 import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
+import PropTypes from "prop-types";
 
 const MessageList = forwardRef(function MessageList(
-  { messages, currentUser },
+  {
+    messages,
+    currentUser,
+    isGroupChat = false,
+    userProfiles = {},
+    onAvatarPress,
+  },
   ref
 ) {
   const flatListRef = useRef(null);
@@ -117,8 +124,49 @@ const MessageList = forwardRef(function MessageList(
     return false;
   };
 
+  // Helper: Consistent time display
+  const TimeText = ({ createdAt, isPending }) => {
+    let timeString = "";
+    if (isPending) {
+      timeString = "sending...";
+    } else if (createdAt && createdAt.toDate) {
+      timeString = createdAt.toDate().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } else if (createdAt instanceof Date) {
+      timeString = createdAt.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } else {
+      timeString = "Just now";
+    }
+    return (
+      <Text
+        style={{
+          fontSize: hp(1.5),
+          color: isPending ? "#0084ff" : "#65676B",
+          fontStyle: isPending ? "italic" : undefined,
+          marginRight: 4,
+        }}
+      >
+        {timeString}
+      </Text>
+    );
+  };
+
   // Render a single file or media message (no grouping)
   const renderFileMessage = (message, isCurrentUser) => {
+    // Debug log
+    // console.log('isGroupChat:', isGroupChat, 'message.isGroup:', message.isGroup);
+    const isGroup = isGroupChat || message.isGroup;
+    // Use latest profileUrl from userProfiles if available
+    const profileUrl = !isCurrentUser
+      ? userProfiles[message.senderId]?.profileUrl ||
+        message.profileUrl ||
+        "https://cdn2.iconfinder.com/data/icons/instagram-ui/48/jee-74-512.png"
+      : undefined;
     return (
       <View
         key={message.id}
@@ -130,16 +178,21 @@ const MessageList = forwardRef(function MessageList(
           }`}
         >
           {!isCurrentUser && (
-            <View className="h-8 w-8 mr-2 mt-1">
-              <Image
-                source={{
-                  uri:
-                    message.profileUrl ||
-                    "https://cdn2.iconfinder.com/data/icons/instagram-ui/48/jee-74-512.png",
-                }}
-                className="w-8 h-8 rounded-full bg-gray-300"
-              />
-            </View>
+            <TouchableOpacity
+              onPress={() =>
+                onAvatarPress &&
+                onAvatarPress(userProfiles[message.senderId] || message)
+              }
+            >
+              <View className="h-8 w-8 mr-2 mt-1">
+                <Image
+                  source={{
+                    uri: profileUrl,
+                  }}
+                  className="w-8 h-8 rounded-full bg-gray-300"
+                />
+              </View>
+            </TouchableOpacity>
           )}
           <View className="max-w-[80%]">
             <FileMessage file={message} isCurrentUser={isCurrentUser} />
@@ -155,21 +208,11 @@ const MessageList = forwardRef(function MessageList(
                 marginBottom: 2,
               }}
             >
-              <Text
-                style={{
-                  fontSize: hp(1.5),
-                  color: "#65676B",
-                  marginRight: isCurrentUser ? 4 : 0,
-                }}
-              >
-                {message.createdAt && message.createdAt.toDate
-                  ? message.createdAt.toDate().toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
-                  : "Just now"}
-              </Text>
-              {isCurrentUser && (
+              <TimeText
+                createdAt={message.createdAt}
+                isPending={message.isPending}
+              />
+              {isCurrentUser && !isGroup && (
                 <View>
                   {message?.seen ? (
                     <Ionicons
@@ -202,6 +245,13 @@ const MessageList = forwardRef(function MessageList(
     const isVideo = item.fileType && item.fileType.startsWith("video/");
     const isFile = item.fileUrl;
     const isCurrentUser = item.senderId === currentUser?.uid;
+    const isGroup = isGroupChat || item.isGroup;
+    // Use latest profileUrl from userProfiles if available
+    const profileUrl = !isCurrentUser
+      ? userProfiles[item.senderId]?.profileUrl ||
+        item.profileUrl ||
+        "https://placekitten.com/200/200"
+      : undefined;
     if (isImage || isVideo || isFile) {
       return renderFileMessage(item, isCurrentUser);
     }
@@ -215,16 +265,51 @@ const MessageList = forwardRef(function MessageList(
           className={`flex-row items-start ${isCurrentUser ? "justify-end" : ""}`}
         >
           {!isCurrentUser && (
-            <View className="h-8 w-8 mr-2 mt-1">
-              <Image
-                source={{
-                  uri: item.profileUrl || "https://placekitten.com/200/200",
-                }}
-                className="w-8 h-8 rounded-full bg-gray-300"
-              />
-            </View>
+            <TouchableOpacity
+              onPress={() =>
+                onAvatarPress &&
+                onAvatarPress(userProfiles[item.senderId] || item)
+              }
+            >
+              <View className="h-8 w-8 mr-2 mt-1">
+                <Image
+                  source={{
+                    uri: profileUrl,
+                  }}
+                  className="w-8 h-8 rounded-full bg-gray-300"
+                />
+              </View>
+            </TouchableOpacity>
           )}
-          <MessageItem message={item} currentUser={currentUser} />
+          <View className="max-w-[80%]">
+            <MessageItem message={item} currentUser={currentUser} />
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: isCurrentUser ? "flex-end" : "flex-start",
+                marginTop: 4,
+                marginLeft: isCurrentUser ? 0 : 2,
+                marginRight: isCurrentUser ? 2 : 0,
+                marginBottom: 2,
+              }}
+            >
+              <TimeText createdAt={item.createdAt} isPending={item.isPending} />
+              {isCurrentUser && !isGroup && (
+                <View>
+                  {item?.seen ? (
+                    <Ionicons
+                      name="checkmark-done"
+                      size={hp(1.6)}
+                      color="#0084ff"
+                    />
+                  ) : (
+                    <Ionicons name="checkmark" size={hp(1.6)} color="#737373" />
+                  )}
+                </View>
+              )}
+            </View>
+          </View>
         </View>
       </View>
     );
@@ -280,3 +365,13 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
 });
+
+// IMPORTANT: Make sure to pass isGroupChat={true} for group chats from the parent component.
+// Example: <MessageList messages={...} currentUser={...} isGroupChat={true} />
+
+MessageList.propTypes = {
+  messages: PropTypes.array.isRequired,
+  currentUser: PropTypes.object,
+  isGroupChat: PropTypes.bool,
+  onAvatarPress: PropTypes.func,
+};

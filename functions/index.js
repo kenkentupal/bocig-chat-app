@@ -163,7 +163,7 @@ exports.sendMessageNotification = functions
             .send({
               token: fcmToken,
               notification: {
-                title: `New message from ${senderName}`,
+                title: `${senderName}`,
                 body: "You have a new message!",
               },
             })

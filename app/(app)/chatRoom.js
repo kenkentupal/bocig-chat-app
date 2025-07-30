@@ -35,9 +35,11 @@ import {
   query,
   onSnapshot,
   orderBy,
+  getDoc, // <-- add getDoc import
 } from "firebase/firestore";
 import * as ScreenCapture from "expo-screen-capture";
 import NetInfo from "@react-native-community/netinfo";
+import ProfilePopup from "../../components/ProfilePopup";
 
 export default function ChatRoom() {
   // Hooks
@@ -111,7 +113,12 @@ export default function ChatRoom() {
   const [messages, setMessages] = useState([]);
   const [pendingMessages, setPendingMessages] = useState([]); // For optimistic UI
   const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [selectedProfile, setSelectedProfile] = useState(null);
   const slideAnimation = useRef(new Animated.Value(0)).current;
+
+  // Add userProfiles state for real-time profileUrl updates
+  const [userProfiles, setUserProfiles] = useState({});
 
   // Refs
   const textRef = useRef("");
@@ -299,7 +306,9 @@ export default function ChatRoom() {
         senderName: user?.username,
         createdAt: serverTimestamp(),
         seen: false,
-        ...(item?.isGroup ? { groupId: item.uid, isGroup: true } : {}),
+        ...(item?.isGroup
+          ? { groupId: item.uid, isGroup: true, seenBy: [user.uid] }
+          : {}),
       };
       await addDoc(messageRef, messageData);
     } catch (error) {
@@ -362,32 +371,43 @@ export default function ChatRoom() {
     );
   };
 
-  // Mark messages from the other user as seen
+  // Mark messages from the other user as seen (supports group seenBy, fixed for Firestore query limitations)
   const markMessagesAsSeen = async () => {
     if (!user?.uid || !item?.uid) return;
-
     try {
       let roomId = item?.isGroup ? item.uid : getRoomId(user?.uid, item?.uid);
       const docRef = doc(db, "rooms", roomId);
       const messageRef = collection(docRef, "messages");
-
-      // Query unread messages from the other user
-      const q = query(
-        messageRef,
-        where("senderId", "==", item.uid),
-        where("seen", "==", false)
-      );
-
-      const querySnapshot = await getDocs(q);
-      if (querySnapshot.empty) return;
-
-      // Batch update all messages to seen=true
-      const batch = writeBatch(db);
-      querySnapshot.forEach((doc) => {
-        batch.update(doc.ref, { seen: true });
-      });
-
-      await batch.commit();
+      if (item?.isGroup) {
+        // Group chat: fetch all messages not sent by current user
+        const q = query(messageRef, where("senderId", "!=", user.uid));
+        const querySnapshot = await getDocs(q);
+        if (querySnapshot.empty) return;
+        const batch = writeBatch(db);
+        querySnapshot.forEach((docSnap) => {
+          const msg = docSnap.data();
+          let seenByArr = Array.isArray(msg.seenBy) ? msg.seenBy : [];
+          if (!seenByArr.includes(user.uid)) {
+            seenByArr = [...seenByArr, user.uid];
+            batch.update(docSnap.ref, { seenBy: seenByArr });
+          }
+        });
+        await batch.commit();
+      } else {
+        // 1-to-1: update seen boolean
+        const q = query(
+          messageRef,
+          where("senderId", "==", item.uid),
+          where("seen", "==", false)
+        );
+        const querySnapshot = await getDocs(q);
+        if (querySnapshot.empty) return;
+        const batch = writeBatch(db);
+        querySnapshot.forEach((doc) => {
+          batch.update(doc.ref, { seen: true });
+        });
+        await batch.commit();
+      }
     } catch (error) {
       console.error("Error marking messages as seen:", error);
     }
@@ -449,7 +469,9 @@ export default function ChatRoom() {
         senderName: user?.username,
         createdAt: serverTimestamp(),
         seen: false,
-        ...(item?.isGroup ? { groupId: item.uid, isGroup: true } : {}),
+        ...(item?.isGroup
+          ? { groupId: item.uid, isGroup: true, seenBy: [user.uid] }
+          : {}),
       });
 
       // Remove from pendingMessages on success
@@ -498,6 +520,34 @@ export default function ChatRoom() {
     });
 
     return () => unsubscribe();
+  }, [item, user]);
+
+  // Listen for real-time user profile updates
+  useEffect(() => {
+    if (!item) return;
+    let userIds = [];
+    if (item.isGroup && Array.isArray(item.users)) {
+      userIds = item.users;
+    } else if (item.uid) {
+      userIds = [user?.uid, item.uid].filter(Boolean);
+    }
+    if (userIds.length === 0) return;
+    const unsubscribes = [];
+    userIds.forEach((uid) => {
+      const userDocRef = doc(usersRef, uid);
+      const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+          setUserProfiles((prev) => ({
+            ...prev,
+            [uid]: docSnap.data(),
+          }));
+        }
+      });
+      unsubscribes.push(unsubscribe);
+    });
+    return () => {
+      unsubscribes.forEach((unsub) => unsub());
+    };
   }, [item, user]);
 
   // Prevent screenshots in this screen
@@ -633,6 +683,12 @@ export default function ChatRoom() {
     }
   }, [messages, pendingMessages]);
 
+  // Handler for avatar press
+  const handleAvatarPress = (profile) => {
+    setSelectedProfile(profile);
+    setShowProfileModal(true);
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: "#fff" }}>
       {/* Remove extra space at the top by not using SafeAreaView or paddingTop */}
@@ -646,6 +702,12 @@ export default function ChatRoom() {
       <View className="h-1 border-b border-neutral-300"></View>
       {/* Use platform-specific attachment menu */}
       {renderAttachmentMenu()}
+      {/* Profile popup modal */}
+      <ProfilePopup
+        visible={showProfileModal}
+        profile={selectedProfile}
+        onClose={() => setShowProfileModal(false)}
+      />
       {/* Main chat interface */}
       <View className="flex-1 justify-between bg-neutral-00 overflow-visible">
         {/* Message list */}
@@ -655,8 +717,11 @@ export default function ChatRoom() {
             ref={messageListRef}
             messages={[...messages, ...pendingMessages]}
             currentUser={user}
+            isGroupChat={item?.isGroup}
+            userProfiles={userProfiles} // Pass userProfiles to MessageList
             autoLoadOlderMessages={true}
             onLoadOlderMessages={() => {}}
+            onAvatarPress={handleAvatarPress}
           />
         </View>
         {/* Upload progress indicator */}

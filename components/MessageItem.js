@@ -102,12 +102,39 @@ export default function MessageItem({ message, currentUser }) {
         </TouchableOpacity>
       );
     } else {
-      // Text message
-      return (
-        <Text style={{ fontSize: hp(2), color: textColor }}>
-          {message?.text}
-        </Text>
-      );
+      // Text message with URL detection
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      const parts = message?.text ? message.text.split(urlRegex) : [];
+      if (parts.length > 1) {
+        return (
+          <Text style={{ fontSize: hp(2), color: textColor }}>
+            {parts.map((part, idx) => {
+              if (urlRegex.test(part)) {
+                return (
+                  <Text
+                    key={idx}
+                    style={{
+                      color: isCurrentUser ? "#fff" : "#0084ff", // brighter for sender
+                      textDecorationLine: "underline",
+                    }}
+                    onPress={() => handleOpenFile(part)}
+                  >
+                    {part}
+                  </Text>
+                );
+              } else {
+                return part;
+              }
+            })}
+          </Text>
+        );
+      } else {
+        return (
+          <Text style={{ fontSize: hp(2), color: textColor }}>
+            {message?.text}
+          </Text>
+        );
+      }
     }
   };
 
@@ -123,62 +150,7 @@ export default function MessageItem({ message, currentUser }) {
       <View style={{ width: wp(70) }}>
         {/* Message bubble */}
         <View style={bubbleStyle}>{renderMessageContent()}</View>
-
-        {/* Time, sending status, and read receipt container */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: isCurrentUser ? "flex-end" : "flex-start",
-            marginTop: 4,
-            marginLeft: isCurrentUser ? 0 : 2,
-            marginRight: isCurrentUser ? 2 : 0,
-          }}
-        >
-          {/* Time display or sending... */}
-          {message.isPending ? (
-            <Text
-              style={{
-                fontSize: hp(1.5),
-                color: "#0084ff",
-                fontStyle: "italic",
-                marginRight: isCurrentUser ? 4 : 0,
-              }}
-            >
-              sending...
-            </Text>
-          ) : (
-            <Text
-              style={{
-                fontSize: hp(1.5),
-                color: "#65676B",
-                marginRight: isCurrentUser ? 4 : 0,
-              }}
-            >
-              {message.createdAt && message.createdAt.toDate
-                ? message.createdAt.toDate().toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
-                : ""}
-            </Text>
-          )}
-
-          {/* Read receipt indicator (only shown for sent messages) */}
-          {isCurrentUser && !message.isPending && (
-            <View>
-              {message?.seen ? (
-                <Ionicons
-                  name="checkmark-done"
-                  size={hp(1.6)}
-                  color="#0084ff"
-                />
-              ) : (
-                <Ionicons name="checkmark" size={hp(1.6)} color="#737373" />
-              )}
-            </View>
-          )}
-        </View>
+        {/* Removed time and read receipt display from here */}
       </View>
     </View>
   );
@@ -193,7 +165,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 18,
     borderWidth: 1,
-    maxWidth: "100%",
+    maxWidth: "80%",
   },
   image: {
     width: wp(60),

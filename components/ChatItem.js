@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, Image } from "react-native";
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { heightPercentageToDP as hp } from "react-native-responsive-screen";
 import { useChat } from "../context/chatContext";
 import { getRoomId } from "../utils/common";
@@ -11,10 +11,8 @@ export default function ChatItem({
   currentUser,
   lastMsg,
   hasUnread,
+  onPress,
 }) {
-  // State
-  const [isUnread, setIsUnread] = useState(false);
-  const [isNavigating, setIsNavigating] = useState(false); // Prevent double navigation
   const { setSelectedChatUser } = useChat();
 
   // Get current user safely - handle array or direct object cases
@@ -22,20 +20,6 @@ export default function ChatItem({
     if (!currentUser) return null;
     return Array.isArray(currentUser) ? currentUser[0]?.uid : currentUser?.uid;
   };
-
-  // Subscribe to unread state only
-  useEffect(() => {
-    const userId = getCurrentUserId();
-    if (!userId || !lastMsg) return;
-
-    if (item.isGroup) {
-      // For group chats, check if message is not seen and not sent by current user
-      setIsUnread(lastMsg.senderId !== userId && lastMsg.seen === false);
-    } else {
-      // For 1-on-1 chats, check if message is from other user and not seen
-      setIsUnread(lastMsg.senderId === item.uid && lastMsg.seen === false);
-    }
-  }, [currentUser, item, lastMsg]);
 
   // Format the timestamp for display
   const formatTime = (ts) => {
@@ -59,22 +43,6 @@ export default function ChatItem({
     });
   };
 
-  // Navigate to chat room when pressed
-  const handlePress = () => {
-    if (isNavigating) return;
-    setIsNavigating(true);
-    setSelectedChatUser(item);
-    // Use correct roomId for 1-on-1 and group chats
-    const me = getCurrentUserId();
-    let roomId = item.isGroup
-      ? item.uid
-      : me && item.uid
-        ? getRoomId(me, item.uid)
-        : item.uid;
-    router.push({ pathname: "/chatRoom", params: { roomId } });
-    setTimeout(() => setIsNavigating(false), 1000);
-  };
-
   const renderMessagePreview = () => {
     if (item.isGroup) {
       if (!lastMsg) {
@@ -85,7 +53,7 @@ export default function ChatItem({
       return (
         <Text
           className={
-            isUnread
+            hasUnread
               ? "text-neutral-800 text-[15px] font-bold"
               : "text-neutral-500 text-[15px]"
           }
@@ -103,7 +71,7 @@ export default function ChatItem({
     const currentUserId = getCurrentUserId();
 
     // Style for unread messages - bold text
-    const messageTextStyle = isUnread
+    const messageTextStyle = hasUnread
       ? "text-neutral-800 text-[15px] font-bold"
       : "text-neutral-500 text-[15px]";
 
@@ -153,11 +121,14 @@ export default function ChatItem({
 
   return (
     <TouchableOpacity
-      disabled={isNavigating}
+      disabled={false}
       className={`flex-row justify-between mx-4 items-center gap-3 mb-4 pb-2 ${
         noBorder ? "" : "border-b border-neutral-300"
       }`}
-      onPress={handlePress}
+      onPress={() => {
+        setSelectedChatUser(item);
+        if (onPress) onPress();
+      }}
     >
       {/* User/Group Avatar with unread indicator */}
       <View className="relative">
@@ -195,7 +166,7 @@ export default function ChatItem({
         )}
 
         {/* Unread message indicator dot for both group and 1on1 */}
-        {isUnread && (
+        {hasUnread && (
           <View
             className="absolute top-0 right-0 bg-blue-500 rounded-full"
             style={{
@@ -212,7 +183,7 @@ export default function ChatItem({
       <View className="flex-1">
         <Text
           className={`text-neutral-800 text-[17px] ${
-            isUnread ? "font-bold" : "font-semibold"
+            hasUnread ? "font-bold" : "font-semibold"
           }`}
         >
           {item.isGroup ? item.groupName : item?.username || "User"}
@@ -224,7 +195,7 @@ export default function ChatItem({
       {(lastMsg?.createdAt || item.createdAt) && (
         <Text
           className={`text-xs ${
-            isUnread ? "text-blue-500 font-bold" : "text-gray-400"
+            hasUnread ? "text-blue-500 font-bold" : "text-gray-400"
           }`}
         >
           {formatTime(lastMsg?.createdAt || item.createdAt)}

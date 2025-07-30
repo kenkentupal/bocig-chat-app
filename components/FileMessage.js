@@ -476,14 +476,7 @@ const FileMessage = ({
               />
             )}
           </View>
-
-          <Text
-            className="text-gray-800 text-center mt-1 px-2"
-            numberOfLines={1}
-            style={{ fontSize: hp(1.6) }}
-          >
-            {file.fileName || "Video"}
-          </Text>
+          {/* Removed file name display for video */}
         </TouchableOpacity>
         {/* Always include modal */}
         <MediaModal />

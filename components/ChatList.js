@@ -69,19 +69,9 @@ export default function ChatList({ users, currentUser }) {
         const msg = snap.docs[0]?.data() || null;
         setLatestMessages((prev) => {
           const updated = { ...prev, [user.uid]: msg };
-          // Update cache
           cacheRef.current.latestMessages = updated;
           return updated;
         });
-
-        // Check if message is unread (sent by other user and not seen)
-        if (msg && msg.senderId !== me.uid && !msg.seen) {
-          setUnreadMessages((prev) => {
-            const updated = { ...prev, [user.uid]: true };
-            cacheRef.current.unreadMessages = updated;
-            return updated;
-          });
-        }
         loadedCount += 1;
         if (loadedCount === users.length) {
           setAllMessagesLoaded(true);
@@ -102,6 +92,38 @@ export default function ChatList({ users, currentUser }) {
       unsubscribes.forEach((unsub) => unsub && unsub());
     };
   }, [users, currentUser]);
+
+  // Best practice: recalculate unreadMessages for all users when latestMessages, users, or currentUser changes
+  useEffect(() => {
+    const me = Array.isArray(currentUser) ? currentUser[0] : currentUser;
+    const newUnread = {};
+    users.forEach((user) => {
+      const m = latestMessages[user.uid];
+      if (user.isGroup) {
+        // For group chats, check if the message is not seen by current user
+        if (
+          m &&
+          m.senderId &&
+          m.senderId !== me?.uid &&
+          ((Array.isArray(m.seenBy) && !m.seenBy.includes(me?.uid)) ||
+            (!Array.isArray(m.seenBy) && m.seen === false))
+        ) {
+          newUnread[user.uid] = true;
+        } else {
+          newUnread[user.uid] = false;
+        }
+      } else {
+        // 1-on-1 chat
+        if (m && m.senderId && m.senderId !== me?.uid && m.seen === false) {
+          newUnread[user.uid] = true;
+        } else {
+          newUnread[user.uid] = false;
+        }
+      }
+    });
+    setUnreadMessages(newUnread);
+    cacheRef.current.unreadMessages = newUnread;
+  }, [latestMessages, currentUser, users]);
 
   useEffect(() => {
     setUserList(users);
@@ -131,21 +153,22 @@ export default function ChatList({ users, currentUser }) {
     };
   }, [users, currentUser]);
 
-  // Mark messages as read when user opens a chat
-  const handleChatOpen = (userId) => {
-    setUnreadMessages((prev) => ({
-      ...prev,
-      [userId]: false,
-    }));
-
-    // Navigate to the chat screen
+  // Mark messages as read and navigate when user opens a chat
+  const handleChatOpen = (item) => {
+    // Mark as read immediately for best UX
+    setUnreadMessages((prev) => {
+      const updated = { ...prev, [item.uid]: false };
+      cacheRef.current.unreadMessages = updated;
+      return updated;
+    });
+    // Use correct roomId for group or 1-on-1
     const me = Array.isArray(currentUser) ? currentUser[0] : currentUser;
-    if (me?.uid) {
-      router.push({
-        pathname: `/chat/${userId}`,
-        params: { currentUserId: me.uid },
-      });
-    }
+    let roomId = item.isGroup
+      ? item.roomId || item.uid
+      : me && item.uid
+        ? getRoomId(me.uid, item.uid)
+        : item.uid;
+    router.push({ pathname: "/chatRoom", params: { roomId } });
   };
 
   // Sort users and group chats by latest message timestamp (desc)
@@ -204,6 +227,7 @@ export default function ChatList({ users, currentUser }) {
               currentUser={currentUser}
               lastMsg={latestMessages[item.uid] || null}
               hasUnread={unreadMessages[item.uid] || false}
+              onPress={() => handleChatOpen(item)}
             />
           )}
         />

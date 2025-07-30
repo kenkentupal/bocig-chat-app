@@ -10,16 +10,16 @@ import { collection, getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { Platform } from "react-native";
 
-// Your web app's Firebase configuration
+// Read Firebase config from environment variables
 const firebaseConfig = {
-  apiKey: "AIzaSyCj1Pe4dnvmMbSOIC8-Mt0FgJ_2v3dxsP4",
-  authDomain: "facialrecognition-4bee2.firebaseapp.com",
-  databaseURL: "https://facialrecognition-4bee2-default-rtdb.firebaseio.com",
-  projectId: "facialrecognition-4bee2",
-  storageBucket: "facialrecognition-4bee2.appspot.com",
-  messagingSenderId: "472138979010",
-  appId: "1:472138979010:web:d6cf2eae313009f0f54d5b",
-  measurementId: "G-WM835XFDHW",
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  databaseURL: process.env.EXPO_PUBLIC_FIREBASE_DATABASE_URL,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 // Initialize Firebase
@@ -31,17 +31,13 @@ if (!getApps().length) {
 }
 
 // Initialize Auth with platform-specific persistence
-let auth;
-// Only use initializeAuth for React Native (mobile only)
-auth = initializeAuth(app, {
+const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage),
 });
 
 export { auth };
-export const db = getFirestore(app); // Initialize Firestore
-export const usersRef = collection(db, "users"); // Reference to the 'users' collection
-export const messagesRef = collection(db, "messages"); // Reference to the 'messages' collection
-export const groupsRef = collection(db, "groups"); // Reference to the 'groups' collection
-
-// Initialize Firebase Storage
+export const db = getFirestore(app);
+export const usersRef = collection(db, "users");
+export const messagesRef = collection(db, "messages");
+export const groupsRef = collection(db, "groups");
 export const storage = getStorage(app);
