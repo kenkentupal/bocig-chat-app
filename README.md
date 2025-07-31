@@ -61,7 +61,7 @@ Below are screenshots of the app in action:
 
 - Configure Firebase project and Twilio credentials
 - Set up environment variables for API keys and endpoints
-- Place demo images and video in `assets/screenshots/` and reference in README
+- Place demo images and video in `assets/demo/` and reference in README
 
 ---
 
