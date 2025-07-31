@@ -4,6 +4,26 @@ A secure, real-time messaging platform built for Bureau of Customs personnel to 
 
 ---
 
+## 🖼️ Demo
+
+Below are some screenshots of the app in action:
+
+|                Messages List                 |              Chat View               |                   New Group                    |                    Edit Group                    |
+| :------------------------------------------: | :----------------------------------: | :--------------------------------------------: | :----------------------------------------------: |
+| ![Messages](assets/screenshots/messages.jpg) | ![Chat](assets/screenshots/chat.jpg) | ![New Group](assets/screenshots/new_group.jpg) | ![Edit Group](assets/screenshots/edit_group.jpg) |
+
+|                     Edit Profile                     |                 Login                  |          OTP Verification          |                User Profile                |
+| :--------------------------------------------------: | :------------------------------------: | :--------------------------------: | :----------------------------------------: |
+| ![Edit Profile](assets/screenshots/edit_profile.jpg) | ![Login](assets/screenshots/login.jpg) | ![OTP](assets/screenshots/otp.jpg) | ![Profile](assets/screenshots/profile.jpg) |
+
+|             Search Contacts              |               Group Members                |                   User Card                    |
+| :--------------------------------------: | :----------------------------------------: | :--------------------------------------------: |
+| ![Search](assets/screenshots/search.jpg) | ![Members](assets/screenshots/members.jpg) | ![User Card](assets/screenshots/user_card.jpg) |
+
+> For a full walkthrough, you can [download the demo video](assets/demo.mkv) or [watch it online](#) (replace with your video link if hosted externally).
+
+---
+
 ## 🚀 Features
 
 - 🔐 **OTP-Only Login**  
@@ -28,7 +48,7 @@ A secure, real-time messaging platform built for Bureau of Customs personnel to 
 - **Frontend:** React Native (Expo)
 - **Backend:** Firebase Authentication, Firestore, Firebase Cloud Storage
 - **Notifications:** Firebase Cloud Messaging (FCM)
-- **Authentication:** OTP-based phone login
+- **Authentication:** OTP-based phone login (via Twilio)
 - **File Handling:** Cloud file uploads via Firebase Storage
 
 ---
