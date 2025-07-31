@@ -6,50 +6,62 @@ A secure, real-time messaging platform built for Bureau of Customs personnel to 
 
 ## 🖼️ Demo
 
-Below are some screenshots of the app in action:
+Below are screenshots of the app in action:
 
-|                Messages List                 |              Chat View               |                   New Group                    |                    Edit Group                    |
-| :------------------------------------------: | :----------------------------------: | :--------------------------------------------: | :----------------------------------------------: |
-| ![Messages](assets/screenshots/messages.jpg) | ![Chat](assets/screenshots/chat.jpg) | ![New Group](assets/screenshots/new_group.jpg) | ![Edit Group](assets/screenshots/edit_group.jpg) |
+|               Chat List                |               Chat Room                |               Create Group                |                Edit Group                |
+| :------------------------------------: | :------------------------------------: | :---------------------------------------: | :--------------------------------------: |
+| ![Chat List](assets/demo/chatlist.jpg) | ![Chat Room](assets/demo/chatroom.jpg) | ![Create Group](assets/demo/creategc.jpg) | ![Edit Group](assets/demo/editgroup.jpg) |
 
-|                     Edit Profile                     |                 Login                  |          OTP Verification          |                User Profile                |
-| :--------------------------------------------------: | :------------------------------------: | :--------------------------------: | :----------------------------------------: |
-| ![Edit Profile](assets/screenshots/edit_profile.jpg) | ![Login](assets/screenshots/login.jpg) | ![OTP](assets/screenshots/otp.jpg) | ![Profile](assets/screenshots/profile.jpg) |
+|                 Edit Profile                 |              Login              |      OTP Verification       |            User Profile             |
+| :------------------------------------------: | :-----------------------------: | :-------------------------: | :---------------------------------: |
+| ![Edit Profile](assets/demo/editprofile.jpg) | ![Login](assets/demo/login.jpg) | ![OTP](assets/demo/otp.jpg) | ![Profile](assets/demo/profile.jpg) |
 
-|             Search Contacts              |               Group Members                |                   User Card                    |
-| :--------------------------------------: | :----------------------------------------: | :--------------------------------------------: |
-| ![Search](assets/screenshots/search.jpg) | ![Members](assets/screenshots/members.jpg) | ![User Card](assets/screenshots/user_card.jpg) |
+|              Search               |               Group Members                |                 View Profile                 |
+| :-------------------------------: | :----------------------------------------: | :------------------------------------------: |
+| ![Search](assets/demo/search.jpg) | ![See Members](assets/demo/seemembers.jpg) | ![View Profile](assets/demo/viewprofile.jpg) |
 
-> For a full walkthrough, you can [download the demo video](assets/demo.mkv) or [watch it online](#) (replace with your video link if hosted externally).
-
----
-
-## 🚀 Features
-
-- 🔐 **OTP-Only Login**  
-  Ensures secure access through phone-based one-time passwords.
-
-- 💬 **Real-Time Messaging**  
-  Built with Firebase for instant communication between authorized personnel.
-
-- 🗂️ **File Upload Support**  
-  Send and receive images and documents with cloud storage integration.
-
-- 🔔 **Cloud Notifications**  
-  Get notified immediately for new messages and updates.
-
-- 📱 **Responsive & Cross-Platform**  
-  Optimized for mobile and tablet use with React Native.
+> For a full walkthrough, you can [download the demo video](assets/demo/demo.mkv) or [watch it online](#) (replace with your video link if hosted externally).
 
 ---
 
-## ⚙️ Tech Stack
+## 📝 Details
 
-- **Frontend:** React Native (Expo)
-- **Backend:** Firebase Authentication, Firestore, Firebase Cloud Storage
-- **Notifications:** Firebase Cloud Messaging (FCM)
-- **Authentication:** OTP-based phone login (via Twilio)
-- **File Handling:** Cloud file uploads via Firebase Storage
+**Tech Stack:**
+
+- React Native (Expo)
+- Firebase (Authentication, Firestore, Cloud Storage, Cloud Messaging)
+- Twilio (for OTP SMS)
+- Lottie (loading animations)
+- Expo AV (video playback)
+- react-native-responsive-screen (responsive UI)
+- Expo Router (navigation)
+
+**Main Features:**
+
+- OTP-based phone login (via Twilio)
+- Real-time 1-on-1 and group chat (Firestore)
+- File sharing: images, videos, documents (with previews and download)
+- Group management: add/remove members, edit group name/avatar
+- User profile management (edit profile, upload avatar)
+- Message read/unread indicators
+- Responsive design for mobile/tablet
+- System messages for group events (e.g., member added/removed, group name changed)
+- Profile popups and modals for user/group info
+
+**Key Components:**
+
+- ChatList & ChatItem: List and preview of chats
+- MessageList & MessageItem: Display messages, files, and system events
+- FileMessage: Handles file/image/video previews and downloads
+- MembersModals: Group member management (add, remove, leave)
+- ProfilePopup: Shows user details in a modal
+- HomeHeader & ChatRoomHeader: Navigation and profile access
+
+**Setup Requirements:**
+
+- Configure Firebase project and Twilio credentials
+- Set up environment variables for API keys and endpoints
+- Place demo images and video in `assets/screenshots/` and reference in README
 
 ---
 
@@ -63,8 +75,3 @@ The app was designed specifically for the Bureau of Customs to:
 - Simplify access with mobile number login only
 
 ---
-
-## 📂 Project Status
-
-✅ Fully functional internal version in production  
-🛠️ Currently enhancing file preview and admin tools
